@@ -134,3 +134,32 @@ Range consistency checks:
 The DOL range ends exactly at the FST start. The BI2 inspection printed the first 16 big-endian words; the values at offsets +0x18, +0x1C and +0x20 were 1, while the other displayed words were 0. These raw values are recorded without assigning meanings until the field layout is independently verified.
 
 The workflow deleted the source RVZ, converted ISO, extracted components and converter working tree during cleanup. No binary component or game image was uploaded or committed. This is a successful extraction/fingerprinting test, not a boot test.
+
+
+## BI2 field interpretation (2026-11-26)
+
+The previously recorded values at BI2 offsets +0x18, +0x1C and +0x20 are now mapped:
+
+| BI2 offset | Field | Ikaruga USA value | Interpretation |
+|---|---|---:|---|
+| +0x00 | Debug monitor size | 0 | No debug monitor size declared |
+| +0x04 | Simulated memory size | 0 | No nonzero simulated-memory override declared |
+| +0x08 | Argument offset | 0 | No argument block offset declared |
+| +0x0C | Debug flag | 0 | Normal boot |
+| +0x10 | MetroTRK/track location | 0 | No track/debug monitor location |
+| +0x14 | MetroTRK/track size | 0 | No track/debug monitor size |
+| +0x18 | Country code | 1 | USA |
+| +0x1C | Total disc count | 1 | Single-disc title |
+| +0x20 | Long filename support | 1 | Long filenames enabled |
+| +0x24 | PAD spec | 0 | Default/zero PAD specification |
+| +0x28 | DOL limit | 0 | No nonzero limit declared |
+
+The field layout is documented by the GameCube GCM format reference; Nintendont independently reads BI2 +0x18 as the region code. The values now explain the three earlier 1 words: USA region, one disc, and long-filename support. They are not RAM-size values.
+
+The memory-related BI2 field is +0x04 (SimulatedMemorySize), and this Ikaruga image stores zero there. Do not infer a Triforce RAM requirement from the three 1 values. Game-specific Triforce memory configuration still needs its own evidence.
+
+The inspection workflow now prints these named BI2 fields as well as the raw first 16 words. This is an interpretation/reporting enhancement only; the updated workflow must run before it is considered CI-verified.
+
+References:
+- https://wiki.re.virtualworld.fr/index.php/GCM_(File_format)
+- https://github.com/FIX94/Nintendont/blob/master/loader/source/main.c
