@@ -61,7 +61,7 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Extracted temporarily: boot.bin 1,088 bytes; bi2.bin 8,192 bytes; apploader.img 113,508 bytes; main.dol 1,489,152 bytes; fst.bin 31,476 bytes.
 - All five component reads and SHA-256 calculations passed.
 - Layout: boot 0x0000–0x0440; BI2 0x0440–0x2440; apploader 0x2440–0x1DFA4; DOL 0x1E000–0x189900; FST 0x189900–0x1913F4.
-- BI2 raw-word sample: +0x18, +0x1C and +0x20 are 1; other displayed words +0x00 through +0x3C are 0. Semantics not yet assigned.
+- BI2 raw-word sample: +0x18, +0x1C and +0x20 are 1; these decode as USA country code, single-disc count and long-filename support. The simulated-memory-size field at +0x04 is zero.
 - Cleanup: PASS. RVZ, ISO, extracted component files and converter working tree removed from the ephemeral runner.
 - Artifacts: None uploaded.
 - Emulator: Not tested.
