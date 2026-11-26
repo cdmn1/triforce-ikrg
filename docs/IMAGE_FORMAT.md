@@ -174,3 +174,36 @@ The utility checks the GameCube magic, source DOL/FST ranges, apploader extent, 
 The updated `Inspect Triforce source RVZ` workflow builds the Hello World DOL in a separate devkitPPC job, transfers only that project-owned DOL as a temporary workflow artifact, downloads the operator-provided RVZ, converts it to ISO, constructs the candidate image, prints its hashes and structural checks, then deletes the source, candidate and extracted components. The candidate image is deliberately not uploaded as an artifact because it contains copyrighted game data.
 
 This is a controlled packaging experiment, not proof that Ikaruga's retail apploader will execute the replacement, not a Dolphin boot result, and not a Triforce NetDIMM payload. The next validation is to run the updated workflow and inspect its structural report; actual apploader execution still requires an emulator test.
+
+
+## Experimental raw NetDIMM payload packaging (2026-11-26)
+
+New evidence narrows the payload format:
+
+- The legacy Triforce DIMM_UploadFile implementation sends the selected file's bytes directly to DIMM memory in 0x8000-byte chunks, then sends a final marker and the CRC/length. It does not add a file container around the payload. This is transport evidence from an old tool, not a real-hardware test of our image.
+- The Triforce Header Patcher operates on raw image files. It recognises known Triforce image sizes, validates the SHA-1 of the image body (starting at byte 0x40), and writes a 0x40-byte GameCube-style disc header for known titles. Its headers place the six-byte game ID at 0x00, GameCube magic 0xC2339F3D at 0x1C, and title text at 0x20. The tool only assigns known IDs after matching known game hashes; it does not prove arbitrary custom IDs are accepted by SegaBoot.
+- Published Triforce hardware notes report a 512 MiB DIMM size. Known Triforce image sizes in the header patcher are below that limit (for example F-Zero AX 0x19FCC500, Mario Kart Arcade GP 0x15000000 and GP 2 0x1E000000).
+- The Triforce Type 3 netboot tutorial uses transfergame.exe <IP> FZ.bin, consistent with a raw binary payload being sent to the DIMM.
+
+Based on that evidence, scripts/package_triforce_netboot.py now creates an **experimental raw .bin payload** from the working candidate GCM:
+
+1. Validates the GameCube boot magic and system-area ranges.
+2. Parses the FST and checks every file extent, as well as the apploader and DOL section extents.
+3. Calculates the last referenced byte and trims only the unreferenced tail; no file offsets are relocated.
+4. Aligns the payload end to 0x20 bytes, matching the 32-byte DI read granularity described in the Triforce hardware notes.
+5. Enforces a default 512 MiB limit and refuses to write an output if referenced data exceeds it.
+6. Writes the custom six-byte homebrew ID THWJ01 and title TRIFORCE NETBOOT HELLO WORLD into the 0x40-byte disc header, preserving the GameCube magic and other header fields.
+7. Writes the raw bytes as .bin; it does not encrypt, wrap, or upload them.
+
+### What remains unverified
+
+- The actual trimmed size of the user's Ikaruga-derived candidate must be checked by running the packager locally. The original ISO is 1.36 GiB, so it cannot be sent to a 512 MiB DIMM unchanged. Trimming is safe only if all referenced data fits below the DIMM limit; the script checks this and refuses oversized output.
+- The custom homebrew ID/title may not be accepted by the cabinet's SegaBoot. Known-image header patching is hash-gated for a reason; we must not claim that a made-up ID is accepted.
+- Dolphin boot was confirmed for the untrimmed candidate before this new header/trim operation. The resulting .bin must be reopened in Dolphin 2609b with Triforce Baseboard enabled and tested again.
+- A successful Dolphin boot or successful NetDIMM transfer/CRC is not a real Triforce boot. Hardware confirmation remains outstanding.
+
+References:
+- https://github.com/travistyoj/piforcetools/blob/master/triforcetools.py
+- https://github.com/FIX94/triforce-header-patcher
+- https://github.com/OpenGP-dev/OpenGP/blob/main/docs/triforce.md
+- https://www.arcade-projects.com/threads/updating-a-triforce-type-3-to-use-cf-cards-tutorial.18576/
