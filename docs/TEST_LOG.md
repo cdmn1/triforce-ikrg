@@ -96,12 +96,12 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 ## 2026-11-26 — experimental raw Triforce NetDIMM packager added
 
 - Added scripts/package_triforce_netboot.py.
-- It validates the GameCube boot header, BI2, apploader, DOL sections and FST; checks all FST file extents; trims only the unreferenced image tail; aligns output to 0x20 bytes; and refuses output above the default 512 MiB DIMM limit.
-- It writes a custom homebrew game ID (THWJ01) and title into the first 0x40 bytes, preserving the GameCube magic and remaining header fields.
-- The output is a raw .bin payload; the script does not upload it, encrypt it or wrap it in a new container.
+- It validates the GameCube boot header, BI2, apploader, DOL sections and source FST; checks all source FST file extents; then creates a compact image with the boot/system area, apploader, replacement DOL and a new 13-byte root-only FST. This is safe for the current Hello World because it performs no disc/file reads.
+- It aligns output to 0x20 bytes, writes a custom homebrew game ID (THWJ01) and title into the first 0x40 bytes, preserves GameCube magic, updates FST pointers, and enforces the default 512 MiB DIMM limit.
+- The output is a compact raw .bin payload; the script does not upload it, encrypt it or wrap it in a new container.
 - Added unit tests for successful trimming/header patching and rejection when the payload exceeds the DIMM limit. The normal build workflow now runs these tests.
 - Updated the RVZ inspection workflow to package the candidate temporarily, report its size and SHA-256, and delete it. No game-derived ISO/BIN artifact is uploaded.
 - Evidence: legacy Triforce DIMM uploader transmits file bytes directly; Triforce Header Patcher uses a 0x40-byte GameCube-style header; published Triforce notes report 512 MiB DIMM.
 - CI status: pending a new workflow run.
-- Emulator: original candidate boot confirmed by user in Dolphin 2609b; packaged/truncated/custom-ID BIN not yet re-tested.
+- Emulator: original candidate boot confirmed by user in Dolphin 2609b; compact root-only-FST/custom-ID BIN not yet re-tested.
 - Real Triforce / NetDIMM: not tested. In particular, acceptance of a custom homebrew ID by SegaBoot remains unknown.
