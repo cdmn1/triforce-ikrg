@@ -93,7 +93,7 @@ def inspect_gcm(path):
             type_name, first, second = struct.unpack_from(">III", fst, index * 12)
             name_offset = type_name & 0xFFFFFF
             name_pos = string_table_offset + name_offset
-            if name_pos >= len(fst) or fst.find(b"\\0", name_pos) < 0:
+            if name_pos >= len(fst) or fst.find(b"\0", name_pos) < 0:
                 raise ValueError(f"FST entry {index} has an invalid name")
             is_dir = bool(type_name >> 24)
             if is_dir:
@@ -169,7 +169,7 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
 
     output.parent.mkdir(parents=True, exist_ok=True)
     source_size = info["source_size"]
-    with source.open("rb") as src, output.open("wb") as dst:
+    with source.open("rb") as src, output.open("w+b") as dst:
         remaining = min(payload_size, source_size)
         while remaining:
             block = src.read(min(1024 * 1024, remaining))
@@ -178,13 +178,13 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
             dst.write(block)
             remaining -= len(block)
         if payload_size > source_size:
-            dst.write(b"\\0" * (payload_size - source_size))
+            dst.write(b"\0" * (payload_size - source_size))
         dst.seek(0)
         header = bytearray(dst.read(0x40))
         if len(header) != 0x40:
             raise ValueError("could not read complete output boot header")
         header[0:6] = game_id_bytes
-        header[0x20:0x40] = title_bytes.ljust(32, b"\\0")
+        header[0x20:0x40] = title_bytes.ljust(32, b"\0")
         dst.seek(0)
         dst.write(header)
         dst.flush()
@@ -194,7 +194,7 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
         raise ValueError("output size verification failed")
     with output.open("rb") as f:
         check = f.read(0x40)
-    if check[0:6] != game_id_bytes or check[0x20:0x40] != title_bytes.ljust(32, b"\\0"):
+    if check[0:6] != game_id_bytes or check[0x20:0x40] != title_bytes.ljust(32, b"\0"):
         raise ValueError("output header verification failed")
     if struct.unpack_from(">I", check, 0x1C)[0] != MAGIC:
         raise ValueError("output GameCube magic changed unexpectedly")
