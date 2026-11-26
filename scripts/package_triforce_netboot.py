@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Create an experimental raw Triforce NetDIMM payload from a GameCube GCM.
+"""Build a compact experimental raw Triforce NetDIMM payload from a GCM.
 
-This does not upload the file and does not prove SegaBoot accepts a custom
-homebrew game ID. It preserves all referenced disc data and only trims the
-unreferenced tail of the image.
+This is specific to the self-contained Hello World program: it retains the
+GameCube boot/system area, apploader and DOL, and replaces the source FST with
+an empty root directory because the program performs no disc/file reads.
 """
 import argparse
 import hashlib
 import os
-import shutil
 import struct
 from pathlib import Path
 
@@ -18,10 +17,15 @@ BI2_OFFSET = 0x440
 BI2_SIZE = 0x2000
 APP_OFFSET = 0x2440
 APP_HEADER_SIZE = 0x20
-DI_READ_ALIGNMENT = 0x20
+ALIGNMENT = 0x20
+EMPTY_FST = struct.pack(">III", 0x01000000, 0, 1) + b"\0"
 DEFAULT_MAX_SIZE = 512 * 1024 * 1024
 DEFAULT_GAME_ID = "THWJ01"
 DEFAULT_TITLE = "TRIFORCE NETBOOT HELLO WORLD"
+
+
+def align_up(value, alignment=ALIGNMENT):
+    return (value + alignment - 1) & ~(alignment - 1)
 
 
 def read_at(f, offset, length, image_size, label):
@@ -44,12 +48,10 @@ def inspect_gcm(path):
         dol_offset, fst_offset, fst_size, fst_max = struct.unpack_from(">IIII", boot, 0x420)
         if not dol_offset or not fst_offset or not fst_size or fst_max < fst_size:
             raise ValueError("invalid DOL/FST offsets or sizes")
-        if dol_offset < APP_OFFSET + APP_HEADER_SIZE:
-            raise ValueError("DOL overlaps the disc system area")
-        if fst_offset <= dol_offset:
-            raise ValueError("FST does not follow the DOL")
+        if dol_offset < APP_OFFSET + APP_HEADER_SIZE or fst_offset <= dol_offset:
+            raise ValueError("invalid DOL/FST placement")
         if fst_offset + fst_size > image_size:
-            raise ValueError("FST extends beyond the source image")
+            raise ValueError("source FST extends beyond the image")
 
         bi2 = read_at(f, BI2_OFFSET, BI2_SIZE, image_size, "BI2")
         app_header = read_at(f, APP_OFFSET, APP_HEADER_SIZE, image_size, "apploader header")
@@ -58,24 +60,31 @@ def inspect_gcm(path):
         app_end = APP_OFFSET + app_size
         if app_end > dol_offset:
             raise ValueError("apploader overlaps the DOL slot")
-        read_at(f, APP_OFFSET, app_size, image_size, "apploader")
+        app = read_at(f, APP_OFFSET, app_size, image_size, "apploader")
 
         dol_header = read_at(f, dol_offset, 0x100, image_size, "DOL header")
         offsets = struct.unpack_from(">18I", dol_header, 0x00)
+        addresses = struct.unpack_from(">18I", dol_header, 0x48)
         sizes = struct.unpack_from(">18I", dol_header, 0x90)
-        dol_extents = []
-        for index, (offset, size) in enumerate(zip(offsets, sizes)):
-            if size:
-                if offset < 0x100:
-                    raise ValueError(f"DOL section {index} overlaps its header")
-                end = dol_offset + offset + size
-                if end > image_size:
-                    raise ValueError(f"DOL section {index} extends beyond the source image")
-                dol_extents.append(end)
-        if not dol_extents:
-            raise ValueError("DOL has no file-backed sections")
-        dol_end = max(dol_offset + 0x100, max(dol_extents))
+        sections = []
+        for index, (offset, address, size) in enumerate(zip(offsets, addresses, sizes)):
+            if not size:
+                continue
+            if offset < 0x100 or address == 0:
+                raise ValueError(f"DOL section {index} has invalid offset or load address")
+            end = dol_offset + offset + size
+            if end > image_size:
+                raise ValueError(f"DOL section {index} extends beyond the source image")
+            sections.append((offset, address, size))
+        entry = struct.unpack_from(">I", dol_header, 0xE0)[0]
+        if not sections or not any(address <= entry < address + size for _, address, size in sections):
+            raise ValueError("DOL has no valid sections or its entry point is not loaded")
+        dol_size = max([0x100] + [offset + size for offset, _, size in sections])
+        if dol_offset + dol_size > fst_offset:
+            raise ValueError("DOL data overlaps the source FST")
 
+        # Validate the source FST and all of its file extents, even though the
+        # self-contained Hello World package intentionally drops those files.
         fst = read_at(f, fst_offset, fst_size, image_size, "FST")
         if len(fst) < 12:
             raise ValueError("FST is too small")
@@ -83,51 +92,42 @@ def inspect_gcm(path):
         entries_bytes = entry_count * 12
         if entry_count < 1 or entries_bytes > len(fst):
             raise ValueError("FST entry count is invalid")
-        root_type_name, root_parent, root_end = struct.unpack_from(">III", fst, 0)
+        root_type_name, _, root_end = struct.unpack_from(">III", fst, 0)
         if not (root_type_name >> 24) or root_end != entry_count:
             raise ValueError("FST root directory entry is invalid")
         string_table_offset = entries_bytes
-        max_file_end = 0
         file_count = 0
         for index in range(entry_count):
             type_name, first, second = struct.unpack_from(">III", fst, index * 12)
-            name_offset = type_name & 0xFFFFFF
-            name_pos = string_table_offset + name_offset
+            name_pos = string_table_offset + (type_name & 0xFFFFFF)
             if name_pos >= len(fst) or fst.find(b"\0", name_pos) < 0:
                 raise ValueError(f"FST entry {index} has an invalid name")
-            is_dir = bool(type_name >> 24)
-            if is_dir:
+            if type_name >> 24:
                 if second <= index or second > entry_count:
                     raise ValueError(f"FST directory entry {index} has an invalid end index")
             else:
-                file_offset, file_size = first, second
-                file_end = file_offset + file_size
-                if file_end > image_size:
+                if first + second > image_size:
                     raise ValueError(f"FST file entry {index} extends beyond the source image")
-                max_file_end = max(max_file_end, file_end)
                 file_count += 1
 
-        required_end = max(
-            BOOT_SIZE,
-            BI2_OFFSET + BI2_SIZE,
-            app_end,
-            dol_end,
-            fst_offset + fst_size,
-            max_file_end,
-        )
-        payload_size = (required_end + DI_READ_ALIGNMENT - 1) & ~(DI_READ_ALIGNMENT - 1)
+        new_fst_offset = align_up(dol_offset + dol_size)
+        new_fst_size = len(EMPTY_FST)
+        output_size = align_up(new_fst_offset + new_fst_size)
         return {
             "source_size": image_size,
-            "game_id": boot[0:6].decode("ascii", "replace"),
+            "original_game_id": boot[0:6].decode("ascii", "replace"),
             "dol_offset": dol_offset,
-            "fst_offset": fst_offset,
-            "fst_size": fst_size,
-            "app_end": app_end,
-            "dol_end": dol_end,
-            "file_count": file_count,
-            "max_file_end": max_file_end,
-            "required_end": required_end,
-            "payload_size": payload_size,
+            "dol_size": dol_size,
+            "dol_entry": entry,
+            "fst_offset": new_fst_offset,
+            "fst_size": new_fst_size,
+            "source_fst_files": file_count,
+            "app_size": app_size,
+            "output_size": output_size,
+            "boot": boot,
+            "bi2": bi2,
+            "apploader": app,
+            "dol": read_at(f, dol_offset, dol_size, image_size, "DOL data"),
         }
 
 
@@ -144,7 +144,7 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
     source = Path(source)
     output = Path(output)
     if not source.is_file():
-        raise ValueError("source GCM does not exist")
+        raise ValueError("source candidate GCM does not exist")
     if source.resolve() == output.resolve():
         raise ValueError("output must not overwrite the source GCM")
     if output.suffix.lower() != ".bin":
@@ -160,50 +160,55 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
         raise ValueError("title must be 1 to 32 ASCII bytes")
 
     info = inspect_gcm(source)
-    payload_size = info["payload_size"]
-    if payload_size > max_size:
+    output_size = info["output_size"]
+    if output_size > max_size:
         raise ValueError(
-            f"referenced disc data requires {payload_size:,} bytes, exceeding "
+            f"compact payload requires {output_size:,} bytes, exceeding "
             f"the {max_size:,}-byte DIMM limit; no output was written"
         )
 
+    image = bytearray(output_size)
+    image[0:BOOT_SIZE] = info["boot"]
+    image[BI2_OFFSET:BI2_OFFSET + BI2_SIZE] = info["bi2"]
+    image[APP_OFFSET:APP_OFFSET + info["app_size"]] = info["apploader"]
+    dol_offset = info["dol_offset"]
+    image[dol_offset:dol_offset + info["dol_size"]] = info["dol"]
+    fst_offset = info["fst_offset"]
+    image[fst_offset:fst_offset + len(EMPTY_FST)] = EMPTY_FST
+
+    image[0:6] = game_id_bytes
+    image[0x20:0x40] = title_bytes.ljust(32, b"\0")
+    struct.pack_into(">IIII", image, 0x420, dol_offset, fst_offset,
+                     len(EMPTY_FST), len(EMPTY_FST))
+
     output.parent.mkdir(parents=True, exist_ok=True)
-    source_size = info["source_size"]
-    with source.open("rb") as src, output.open("w+b") as dst:
-        remaining = min(payload_size, source_size)
-        while remaining:
-            block = src.read(min(1024 * 1024, remaining))
-            if not block:
-                raise ValueError("unexpected end of source while copying payload")
-            dst.write(block)
-            remaining -= len(block)
-        if payload_size > source_size:
-            dst.write(b"\0" * (payload_size - source_size))
-        dst.seek(0)
-        header = bytearray(dst.read(0x40))
-        if len(header) != 0x40:
-            raise ValueError("could not read complete output boot header")
-        header[0:6] = game_id_bytes
-        header[0x20:0x40] = title_bytes.ljust(32, b"\0")
-        dst.seek(0)
-        dst.write(header)
+    with output.open("wb") as dst:
+        dst.write(image)
         dst.flush()
         os.fsync(dst.fileno())
 
-    if output.stat().st_size != payload_size:
+    if output.stat().st_size != output_size:
         raise ValueError("output size verification failed")
     with output.open("rb") as f:
-        check = f.read(0x40)
+        check = f.read(BOOT_SIZE)
+        f.seek(fst_offset)
+        fst_check = f.read(len(EMPTY_FST))
     if check[0:6] != game_id_bytes or check[0x20:0x40] != title_bytes.ljust(32, b"\0"):
-        raise ValueError("output header verification failed")
+        raise ValueError("output disc header verification failed")
     if struct.unpack_from(">I", check, 0x1C)[0] != MAGIC:
         raise ValueError("output GameCube magic changed unexpectedly")
+    if struct.unpack_from(">IIII", check, 0x420) != (
+        dol_offset, fst_offset, len(EMPTY_FST), len(EMPTY_FST)
+    ):
+        raise ValueError("output DOL/FST pointers did not verify")
+    if fst_check != EMPTY_FST:
+        raise ValueError("output empty FST did not verify")
     return info
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Trim a candidate GameCube GCM to referenced data and write an experimental Triforce .bin payload."
+        description="Build a compact raw Triforce .bin from the self-contained Hello World candidate GCM."
     )
     parser.add_argument("source_gcm", type=Path)
     parser.add_argument("output_bin", type=Path)
@@ -227,16 +232,18 @@ def main():
     print("TRIFORCE NETDIMM EXPERIMENTAL PACKAGE: PASS")
     print(f"Source GCM: {args.source_gcm}")
     print(f"Source size: {info['source_size']:,} bytes")
-    print(f"Original game ID: {info['game_id']}")
+    print(f"Original game ID: {info['original_game_id']}")
     print(f"Output BIN: {args.output_bin}")
-    print(f"Output size: {info['payload_size']:,} bytes")
+    print(f"Output size: {info['output_size']:,} bytes")
     print(f"New game ID: {args.game_id}")
     print(f"Disc title: {args.title}")
-    print(f"FST files checked: {info['file_count']}")
-    print(f"Last referenced file byte: 0x{info['max_file_end']:X}")
+    print(f"DOL: offset 0x{info['dol_offset']:X}, size {info['dol_size']:,} bytes, entry 0x{info['dol_entry']:08X}")
+    print(f"Apploader: {info['app_size']:,} bytes")
+    print(f"Original FST files removed: {info['source_fst_files']}")
+    print(f"New FST: offset 0x{info['fst_offset']:X}, empty root only ({info['fst_size']} bytes)")
     print(f"SHA-256: {sha256_file(args.output_bin)}")
-    print("Payload: raw disc bytes, trimmed only after the last referenced extent, 0x20-byte aligned.")
-    print("NOTE: transport-compatible raw upload is inferred from legacy Triforce DIMM tools.")
+    print("Payload: compact raw GameCube/Triforce-style image; no wrapper, encryption or upload.")
+    print("NOTE: this Hello World performs no disc/file reads; original FST files are intentionally omitted.")
     print("NOTE: custom homebrew ID/SegaBoot acceptance and real Triforce boot are NOT verified.")
 
 
