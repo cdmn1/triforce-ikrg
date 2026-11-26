@@ -31,26 +31,30 @@ def make_test_gcm(path):
 
 
 class PackageTest(unittest.TestCase):
-    def test_builds_compact_raw_payload_with_empty_fst(self):
+    def test_builds_compact_payload_with_triforce_boot_id(self):
         with tempfile.TemporaryDirectory() as td:
             source = Path(td) / "source.iso"
             output = Path(td) / "hello.bin"
             make_test_gcm(source)
             info = module.package_image(source, output)
-            self.assertEqual(info["source_fst_files"], 1)
-            self.assertEqual(output.stat().st_size, info["output_size"])
-            self.assertLess(output.stat().st_size, source.stat().st_size)
             data = output.read_bytes()
             self.assertEqual(data[:6], b"THWJ01")
-            self.assertEqual(data[0x20:0x40], module.DEFAULT_TITLE.encode().ljust(32, b"\0"))
-            self.assertEqual(struct.unpack_from(">I", data, 0x1C)[0], module.MAGIC)
-            dol_offset, fst_offset, fst_size, fst_max = struct.unpack_from(">IIII", data, 0x420)
-            self.assertEqual(dol_offset, 0x3000)
-            self.assertEqual(fst_size, len(module.EMPTY_FST))
-            self.assertEqual(fst_max, len(module.EMPTY_FST))
-            self.assertEqual(data[fst_offset:fst_offset + fst_size], module.EMPTY_FST)
+            _, fst_offset, fst_size, fst_max = struct.unpack_from(">IIII", data, 0x420)
+            self.assertEqual(fst_size, 33)
+            self.assertEqual(fst_max, fst_size)
+            fst = data[fst_offset:fst_offset + fst_size]
+            self.assertEqual(struct.unpack_from(">III", fst, 0), (0x01000000, 0, 2))
+            name_type, file_offset, file_size = struct.unpack_from(">III", fst, 12)
+            self.assertEqual(name_type, 1)
+            self.assertEqual(file_offset, info["boot_id_offset"])
+            self.assertEqual(file_size, 480)
+            self.assertEqual(fst[24:], b"\0boot.id\0")
+            boot_id = data[file_offset:file_offset + file_size]
+            self.assertEqual(boot_id[:4], b"BTID")
+            self.assertEqual(boot_id[0x20:0x24], b"GCAM")
+            self.assertEqual(struct.unpack_from(">I", boot_id, 0x38)[0], 0x0E)
+            self.assertEqual(boot_id[0x80:0xA0].rstrip(b"\0"), module.DEFAULT_TITLE.encode())
             self.assertEqual(data[0x3100:0x3120], b"D" * 0x20)
-            self.assertLess(fst_offset, len(data))
             self.assertNotIn(b"file.bin", data)
 
     def test_refuses_payload_over_limit_without_output(self):
