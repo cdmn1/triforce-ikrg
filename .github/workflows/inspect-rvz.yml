@@ -197,7 +197,27 @@ jobs:
                   with open(path, "wb") as dst:
                       dst.write(data)
                   print(f"{name}: size={len(data)} bytes sha256={hashlib.sha256(data).hexdigest()}")
-              print("BI2 FIRST 16 WORDS (big-endian; offsets relative to bi2.bin):")
+              bi2_fields = [
+                  (0x00, "Debug monitor size"),
+                  (0x04, "Simulated memory size"),
+                  (0x08, "Argument offset"),
+                  (0x0C, "Debug flag"),
+                  (0x10, "MetroTRK/track location"),
+                  (0x14, "MetroTRK/track size"),
+                  (0x18, "Country code"),
+                  (0x1C, "Total disc count"),
+                  (0x20, "Long filename support"),
+                  (0x24, "PAD spec"),
+                  (0x28, "DOL limit"),
+              ]
+              print("BI2 DECODED FIELDS (big-endian; offsets relative to bi2.bin):")
+              for off, label in bi2_fields:
+                  value = struct.unpack_from(">I", bi2, off)[0]
+                  print(f"  +0x{off:02X} {label}: {value} (0x{value:08X})")
+              country = struct.unpack_from(">I", bi2, 0x18)[0]
+              country_names = {0: "Japan", 1: "USA", 2: "PAL", 4: "Korea"}
+              print("BI2 COUNTRY:", country_names.get(country, "Unknown/other"))
+              print("BI2 FIRST 16 RAW WORDS:")
               for off in range(0, 0x40, 4):
                   print(f"  +0x{off:02X}: 0x{struct.unpack_from('>I', bi2, off)[0]:08X}")
               print(f"APPLOADER RANGE: 0x2440..0x{0x2440+app_size:X}")
