@@ -44,6 +44,28 @@ References:
 - https://github.com/DragonMinded/netboot
 - https://www.arcade-projects.com/threads/updating-a-triforce-type-3-to-use-cf-cards-tutorial.18576/
 
+## Building a conventional GameCube GCM for a controlled test
+
+A native GameCube GCM is not the same thing as an ISO9660/El Torito homebrew disc. For a conventional GameCube image, the boot/system area includes at least:
+
+- `boot.bin` (disc header)
+- `bi2.bin` (boot configuration, including memory-size information)
+- `apploader.img`
+- `main.dol`
+- `fst.bin` and filesystem content when used
+
+Tools such as pyisotools can rebuild an extracted GameCube image, but they do not supply Nintendo system files. GCubeSDK's disc-image documentation likewise requires the four system files to be extracted from a disc the operator owns.
+
+One additional complication: a normal devkitPPC DOL may need relocation/compression for execution by a disc apploader. GCubeSDK documents a `dollz3`/relocation step for its real GCM workflow. We must verify the exact tool and output behavior before adding it to CI.
+
+Therefore the first controlled disc-image experiment should use a legally dumped source image, preserve its system files and metadata, replace only the main executable with a suitably apploader-compatible build, rebuild, and then test the resulting GCM in Dolphin's Triforce mode. That will validate the disc-image path in an emulator, not real NetDIMM boot.
+
+References:
+- https://github.com/JoshuaMKW/pyisotools
+- https://fenixfox-studios.com/manual/gcubesdk/disc.html
+- https://fenixfox-studios.com/manual/gcubesdk/config.html
+- https://gc-forever.com/wiki/index.php?title=Create_a_bootable_homebrew_disc
+
 ## Safe packaging investigation
 
 1. Obtain a legally dumped, known-good GameCube or Triforce disc image from hardware the operator owns.
