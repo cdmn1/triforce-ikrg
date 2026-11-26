@@ -67,3 +67,15 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Emulator: Not tested.
 - Real Triforce: Not tested.
 - Interpretation: source system-area extraction works. Rebuilt GCM and Triforce NetDIMM payload compatibility remain unverified.
+
+
+## 2026-11-26 — BI2 field mapping and inspection update
+
+- Research result: BI2 +0x18 is country code; +0x1C is total disc count; +0x20 is long-filename support.
+- Ikaruga USA values decode as country=1 (USA), disc count=1, long-filename support=1.
+- BI2 +0x04 is the simulated-memory-size field and is zero in this image. The three earlier 1 values are not RAM-size settings.
+- Debug flag at +0x0C is zero (normal boot); MetroTRK/track location and size at +0x10/+0x14 are zero.
+- Updated workflow commit: f1151efdd557573b319df97c5ada4cdc5d948429.
+- CI validation of the newly labeled output: pending.
+- Emulator: Not tested.
+- Real Triforce: Not tested.
