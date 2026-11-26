@@ -14,7 +14,7 @@ def make_test_gcm(path):
     image = bytearray(0x4000)
     image[0:6] = b"GIKE70"
     struct.pack_into(">I", image, 0x1C, module.MAGIC)
-    struct.pack_into(">IIII", image, 0x420, 0x3000, 0x3400, 0x20, 0x20)
+    struct.pack_into(">IIII", image, 0x420, 0x3000, 0x3400, 0x22, 0x22)
     # Empty apploader, with a valid 0x20-byte header.
     # One loaded DOL section at file offset 0x100.
     struct.pack_into(">I", image, 0x3000, 0x100)
@@ -23,8 +23,8 @@ def make_test_gcm(path):
     struct.pack_into(">I", image, 0x3000 + 0xE0, 0x80003100)
     # FST: root directory + one file named "file.bin".
     struct.pack_into(">III", image, 0x3400, 0x01000000, 0, 2)
-    struct.pack_into(">III", image, 0x340C, 0x00000000, 0x3800, 0x100)
-    image[0x3418:0x3420] = b"file.bin"
+    struct.pack_into(">III", image, 0x340C, 0x00000001, 0x3800, 0x100)
+    image[0x3418:0x3422] = b"\\0file.bin\\0"
     image[0x3800:0x3900] = b"X" * 0x100
     path.write_bytes(image)
 
@@ -40,7 +40,7 @@ class PackageTest(unittest.TestCase):
             self.assertEqual(output.stat().st_size, 0x3900)
             data = output.read_bytes()
             self.assertEqual(data[:6], b"THWJ01")
-            self.assertEqual(data[0x20:0x40], module.DEFAULT_TITLE.encode().ljust(32, b"\\0"))
+            self.assertEqual(data[0x20:0x40], module.DEFAULT_TITLE.encode().ljust(32, b"\0"))
             self.assertEqual(struct.unpack_from(">I", data, 0x1C)[0], module.MAGIC)
             self.assertEqual(data[0x3800:0x3900], b"X" * 0x100)
 
