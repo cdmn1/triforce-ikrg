@@ -22,6 +22,11 @@ jobs:
 
       - name: Show toolchain versions
         run: |
+          export PATH="${DEVKITPPC}/bin:${DEVKITPRO}/tools/bin:${PATH}"
+          echo "DEVKITPRO=${DEVKITPRO}"
+          echo "DEVKITPPC=${DEVKITPPC}"
+          echo "PATH=${PATH}"
+          test -x "${DEVKITPPC}/bin/powerpc-eabi-gcc"
           powerpc-eabi-gcc --version
           make --version
           command -v elf2dol
