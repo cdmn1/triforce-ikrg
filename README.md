@@ -11,7 +11,10 @@ Research and development project to establish a reproducible workflow for buildi
 | devkitPPC in GitHub Actions | Passed (run #6) |
 | Minimal framebuffer Hello World | Compiled into DOL |
 | DOL structural validation | Passed (run #6) |
-| GameCube source-image inspection | Passed for Ikaruga USA (run [45897021932](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897021932)) |\n| System-area component extraction | Workflow added; awaiting validation run |\n| GameCube disc-image packaging | Research only; standard images evidenced for specific Triforce games |\n| NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware not tested |
+| GameCube source-image inspection | Passed for Ikaruga USA (run [45897021932](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897021932)) |
+| System-area component extraction | Workflow added; awaiting validation run |
+| GameCube disc-image packaging | Research only; standard images evidenced for specific Triforce games |
+| NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware not tested |
 | Triforce NetDIMM BIN format | Not verified |
 | Emulator boot | Not tested |
 | Real Triforce boot | Not tested |
