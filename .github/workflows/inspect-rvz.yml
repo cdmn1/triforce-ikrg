@@ -77,8 +77,9 @@ jobs:
                   raise SystemExit("FAIL: image is too small for a GameCube boot header")
               magic = struct.unpack_from(">I", boot, 0x1C)[0]
               print("IMAGE SIZE:", size)
-              print("GAME ID:", boot[0:6].decode("ascii", "replace"))
+              print("GAME ID:", boot[0:4].decode("ascii", "replace"))
               print("MAKER:", boot[4:6].decode("ascii", "replace"))
+              print("DISC NUMBER:", boot[6])
               print("DISC VERSION:", boot[7])
               print("BOOT MAGIC: 0x%08X" % magic)
               if magic != 0xC2339F3D:
