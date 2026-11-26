@@ -185,21 +185,22 @@ New evidence narrows the payload format:
 - Published Triforce hardware notes report a 512 MiB DIMM size. Known Triforce image sizes in the header patcher are below that limit (for example F-Zero AX 0x19FCC500, Mario Kart Arcade GP 0x15000000 and GP 2 0x1E000000).
 - The Triforce Type 3 netboot tutorial uses transfergame.exe <IP> FZ.bin, consistent with a raw binary payload being sent to the DIMM.
 
-Based on that evidence, scripts/package_triforce_netboot.py now creates an **experimental raw .bin payload** from the working candidate GCM:
+Based on that evidence, scripts/package_triforce_netboot.py now creates an **experimental compact raw .bin payload** from the working candidate GCM. Because this Hello World does not read files from disc, the packager deliberately removes the original game's FST entries and game files instead of carrying them into the NetDIMM image:
 
-1. Validates the GameCube boot magic and system-area ranges.
-2. Parses the FST and checks every file extent, as well as the apploader and DOL section extents.
-3. Calculates the last referenced byte and trims only the unreferenced tail; no file offsets are relocated.
-4. Aligns the payload end to 0x20 bytes, matching the 32-byte DI read granularity described in the Triforce hardware notes.
-5. Enforces a default 512 MiB limit and refuses to write an output if referenced data exceeds it.
-6. Writes the custom six-byte homebrew ID THWJ01 and title TRIFORCE NETBOOT HELLO WORLD into the 0x40-byte disc header, preserving the GameCube magic and other header fields.
-7. Writes the raw bytes as .bin; it does not encrypt, wrap, or upload them.
+1. Validates the GameCube boot magic, BI2, apploader and DOL section extents.
+2. Parses the source FST and checks every file extent before discarding the source FST contents.
+3. Retains the boot header, BI2, apploader and replacement DOL at the declared DOL offset.
+4. Creates a valid 13-byte root-only FST and updates the boot header's FST offset/size fields.
+5. Aligns the final payload to 0x20 bytes, matching the 32-byte DI read granularity described in the Triforce hardware notes.
+6. Enforces a default 512 MiB limit and refuses to write an output if the compact image exceeds it.
+7. Writes the custom six-byte homebrew ID THWJ01 and title TRIFORCE NETBOOT HELLO WORLD into the 0x40-byte disc header, preserving the GameCube magic and other header fields.
+8. Writes the compact raw bytes as .bin; it does not encrypt, wrap, or upload them.
 
 ### What remains unverified
 
-- The actual trimmed size of the user's Ikaruga-derived candidate must be checked by running the packager locally. The original ISO is 1.36 GiB, so it cannot be sent to a 512 MiB DIMM unchanged. Trimming is safe only if all referenced data fits below the DIMM limit; the script checks this and refuses oversized output.
+- The compact payload size must be checked by running the packager on the user's Ikaruga-derived candidate. The original ISO is 1.36 GiB, but the compact output contains only the boot/system area, apploader, replacement DOL and empty FST, so it should be much smaller. The script still validates the original FST and all file extents before discarding those files.
 - The custom homebrew ID/title may not be accepted by the cabinet's SegaBoot. Known-image header patching is hash-gated for a reason; we must not claim that a made-up ID is accepted.
-- Dolphin boot was confirmed for the untrimmed candidate before this new header/trim operation. The resulting .bin must be reopened in Dolphin 2609b with Triforce Baseboard enabled and tested again.
+- Dolphin boot was confirmed for the candidate before this compact-image/header operation. The resulting .bin must be reopened in Dolphin 2609b with Triforce Baseboard enabled and tested again.
 - A successful Dolphin boot or successful NetDIMM transfer/CRC is not a real Triforce boot. Hardware confirmation remains outstanding.
 
 References:
