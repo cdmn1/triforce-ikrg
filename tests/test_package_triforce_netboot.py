@@ -21,6 +21,7 @@ def make_test_gcm(path):
     struct.pack_into(">I", image, 0x3000 + 0x48, 0x80003100)
     struct.pack_into(">I", image, 0x3000 + 0x90, 0x20)
     struct.pack_into(">I", image, 0x3000 + 0xE0, 0x80003100)
+    image[0x3100:0x3120] = b"D" * 0x20
     # FST: root directory + one file named "file.bin".
     struct.pack_into(">III", image, 0x3400, 0x01000000, 0, 2)
     struct.pack_into(">III", image, 0x340C, 0x00000001, 0x3800, 0x100)
@@ -48,7 +49,7 @@ class PackageTest(unittest.TestCase):
             self.assertEqual(fst_size, len(module.EMPTY_FST))
             self.assertEqual(fst_max, len(module.EMPTY_FST))
             self.assertEqual(data[fst_offset:fst_offset + fst_size], module.EMPTY_FST)
-            self.assertEqual(data[0x3100:0x3120], b"\0" * 0x20)
+            self.assertEqual(data[0x3100:0x3120], b"D" * 0x20)
             self.assertLess(fst_offset, len(data))
             self.assertNotIn(b"file.bin", data)
 
