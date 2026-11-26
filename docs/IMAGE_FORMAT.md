@@ -208,3 +208,17 @@ References:
 - https://github.com/FIX94/triforce-header-patcher
 - https://github.com/OpenGP-dev/OpenGP/blob/main/docs/triforce.md
 - https://www.arcade-projects.com/threads/updating-a-triforce-type-3-to-use-cf-cards-tutorial.18576/
+
+
+## Compact Triforce-recognition experiment (v02)
+
+The compact Hello World package includes a synthetic boot.id file in its GameCube FST. Dolphin's VolumeGC checks the FST for boot.id, validates the four-byte BTID magic, and then treats the volume as Triforce. The 480-byte structure contains GCAM at offset 0x20, an eight-byte homebrew identifier, USA region flags (0x0E), and homebrew manufacturer/title strings.
+
+This metadata is constructed for Dolphin's source-level recognition path. It is not copied from a retail Triforce title and is not evidence that SegaBoot accepts arbitrary homebrew metadata. The Type-3 compatibility byte is left unset. The six-byte GameCube boot header ID remains THWJ01.
+
+Expected test:
+- Dolphin should classify the volume as Triforce based on boot.id.
+- Its AM-Mediaboard code may still report an unknown game ID and use default controls.
+- A successful Dolphin classification/boot does not establish real Triforce NetDIMM compatibility.
+
+The packager retains only the boot.id metadata file; original game FST entries and assets remain omitted.
