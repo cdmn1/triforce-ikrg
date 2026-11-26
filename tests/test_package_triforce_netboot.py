@@ -24,7 +24,7 @@ def make_test_gcm(path):
     # FST: root directory + one file named "file.bin".
     struct.pack_into(">III", image, 0x3400, 0x01000000, 0, 2)
     struct.pack_into(">III", image, 0x340C, 0x00000001, 0x3800, 0x100)
-    image[0x3418:0x3422] = b"\\0file.bin\\0"
+    image[0x3418:0x3422] = b"\0file.bin\0"
     image[0x3800:0x3900] = b"X" * 0x100
     path.write_bytes(image)
 
