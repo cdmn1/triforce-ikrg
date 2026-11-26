@@ -41,6 +41,10 @@ jobs:
           test -s triforce-hello.dol
           python3 scripts/validate_dol.py triforce-hello.dol
 
+      - name: Test experimental Triforce payload packager
+        run: |
+          python3 -m unittest discover -s tests -v
+
       - name: Create versioned artifact
         run: |
           mkdir -p dist
