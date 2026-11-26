@@ -163,3 +163,14 @@ The inspection workflow now prints these named BI2 fields as well as the raw fir
 References:
 - https://wiki.re.virtualworld.fr/index.php/GCM_(File_format)
 - https://github.com/FIX94/Nintendont/blob/master/loader/source/main.c
+
+
+## Controlled Hello World DOL replacement experiment
+
+A new utility, `scripts/replace_gcm_dol.py`, builds a candidate GameCube image from an operator-owned ISO and this project's Hello World DOL. It replaces the DOL in-place at the boot header's declared DOL offset, zero-fills only the remaining space up to the original FST, and leaves the boot header, BI2, apploader, FST, image length and all other game data untouched.
+
+The utility checks the GameCube magic, source DOL/FST ranges, apploader extent, replacement DOL section bounds and entry point, available DOL slot capacity, and byte-for-byte preservation of the boot header, BI2, apploader and FST after writing.
+
+The updated `Inspect Triforce source RVZ` workflow builds the Hello World DOL in a separate devkitPPC job, transfers only that project-owned DOL as a temporary workflow artifact, downloads the operator-provided RVZ, converts it to ISO, constructs the candidate image, prints its hashes and structural checks, then deletes the source, candidate and extracted components. The candidate image is deliberately not uploaded as an artifact because it contains copyrighted game data.
+
+This is a controlled packaging experiment, not proof that Ikaruga's retail apploader will execute the replacement, not a Dolphin boot result, and not a Triforce NetDIMM payload. The next validation is to run the updated workflow and inspect its structural report; actual apploader execution still requires an emulator test.
