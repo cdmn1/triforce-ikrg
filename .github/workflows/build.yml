@@ -33,13 +33,13 @@ jobs:
 
       - name: Validate DOL
         run: |
-          test -s build/triforce-hello.dol
-          python3 scripts/validate_dol.py build/triforce-hello.dol
+          test -s triforce-hello.dol
+          python3 scripts/validate_dol.py triforce-hello.dol
 
       - name: Create versioned artifact
         run: |
           mkdir -p dist
-          cp build/triforce-hello.dol dist/triforce-hello-v01.dol
+          cp triforce-hello.dol dist/triforce-hello-v01.dol
           sha256sum dist/triforce-hello-v01.dol > dist/SHA256SUMS.txt
           {
             echo "Triforce Hello World v01"
