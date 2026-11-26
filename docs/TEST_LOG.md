@@ -13,3 +13,11 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Emulator: Not tested
 - Real Triforce: Not tested
 - Notes: DOL build milestone only, not a NetDIMM image or boot confirmation.
+
+## 2026-11-26 — CI attempt 1
+
+- Run: 45881270134
+- Result: Failed before compilation.
+- Failure: devkitPPC compiler was installed in the container but its bin directory was not on PATH during the toolchain-version check.
+- Correction: explicitly prepend DEVKITPPC/bin and DEVKITPRO/tools/bin in the workflow before checking tool versions.
+- No source compilation or DOL validation occurred in this attempt.
