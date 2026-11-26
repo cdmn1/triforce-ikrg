@@ -13,7 +13,7 @@ Research and development project to establish a reproducible workflow for buildi
 | DOL structural validation | Passed (run #6) |
 | GameCube source-image inspection | Passed for Ikaruga USA (run [45897021932](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897021932)) |
 | System-area component extraction | Passed (run [45897618626](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897618626)); BI2 field decoding added, CI rerun pending |
-| GameCube disc-image packaging | Research only; standard images evidenced for specific Triforce games |
+| GameCube disc-image packaging | Candidate DOL replacement utility and ephemeral CI test added; run pending |
 | NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware not tested |
 | Triforce NetDIMM BIN format | Not verified |
 | Emulator boot | Not tested |
