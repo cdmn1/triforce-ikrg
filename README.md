@@ -2,16 +2,16 @@
 
 Research and development project to establish a reproducible workflow for building, packaging, validating and booting custom software on Sega/Namco/Nintendo Triforce arcade hardware.
 
-**Current milestone:** build a minimal GameCube/Triforce-compatible Hello World DOL. A successful DOL build is not yet a verified Triforce NetDIMM image or hardware boot.
+**Current milestone:** first minimal GameCube Hello World DOL built and structurally validated by CI. This is not yet a verified Triforce NetDIMM image or hardware boot.
 
 ## Status
 
 | Stage | Status |
 |---|---|
-| devkitPPC in GitHub Actions | Implemented |
-| Minimal framebuffer Hello World | Implemented |
-| DOL structural validation | Implemented |
-| GameCube disc-image packaging | Research only |
+| devkitPPC in GitHub Actions | Passed (run #6) |
+| Minimal framebuffer Hello World | Compiled into DOL |
+| DOL structural validation | Passed (run #6) |
+| GameCube disc-image packaging | Research only; standard images evidenced for specific Triforce games |
 | Triforce NetDIMM BIN format | Not verified |
 | Emulator boot | Not tested |
 | Real Triforce boot | Not tested |
