@@ -79,3 +79,15 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - CI validation of the newly labeled output: pending.
 - Emulator: Not tested.
 - Real Triforce: Not tested.
+
+
+## 2026-11-26 — candidate GCM replacement utility added
+
+- Added `scripts/replace_gcm_dol.py` to replace a source GCM's main DOL in-place.
+- The utility preserves and rechecks boot header, BI2, apploader, FST and total image length; checks the replacement DOL's section bounds and entry point; and verifies it fits before the FST.
+- Updated the manual RVZ inspection workflow to build the project's Hello World DOL in a devkitPPC job, pass only that DOL to the image-inspection job, construct a candidate GCM temporarily, report hashes and delete the candidate.
+- Candidate GCM and copyrighted source image are not uploaded as artifacts.
+- Workflow run: pending manual dispatch.
+- Emulator/apploader execution: not tested.
+- Real Triforce: not tested.
+- NetDIMM BIN compatibility: not tested.
