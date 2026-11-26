@@ -270,7 +270,7 @@ jobs:
           python3 scripts/package_triforce_netboot.py \
             "$RUNNER_TEMP/triforce-inspect/candidate-homebrew.iso" \
             "$RUNNER_TEMP/triforce-inspect/triforce-hello-v01.bin"
-          stat --printf='Experimental NetDIMM payload size: %s bytes\\n' \
+          stat -c 'Experimental NetDIMM payload size: %s bytes' \
             "$RUNNER_TEMP/triforce-inspect/triforce-hello-v01.bin"
           sha256sum "$RUNNER_TEMP/triforce-inspect/triforce-hello-v01.bin"
           echo "Candidate ISO and BIN remain only in ephemeral runner storage; no game image artifact will be uploaded."
