@@ -88,8 +88,6 @@ def main():
     shutil.copyfile(args.source_iso, args.output_iso)
     with open(args.output_iso, "r+b") as dst:
         dst.seek(dol_offset)
-        dst.write(b"\0" * capacity)
-        dst.seek(dol_offset)
         dst.write(dol)
         dst.flush()
         os.fsync(dst.fileno())
