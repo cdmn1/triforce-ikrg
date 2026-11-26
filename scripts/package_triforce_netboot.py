@@ -18,10 +18,35 @@ BI2_SIZE = 0x2000
 APP_OFFSET = 0x2440
 APP_HEADER_SIZE = 0x20
 ALIGNMENT = 0x20
-EMPTY_FST = struct.pack(">III", 0x01000000, 0, 1) + b"\0"
+BOOT_ID_SIZE = 480
+BOOT_ID_MAGIC = b"BTID"
+MEDIABOARD_TYPE = b"GCAM"
 DEFAULT_MAX_SIZE = 512 * 1024 * 1024
 DEFAULT_GAME_ID = "THWJ01"
 DEFAULT_TITLE = "TRIFORCE NETBOOT HELLO WORLD"
+DEFAULT_MANUFACTURER = "TRIFORCE HOMEBREW"
+
+
+def make_boot_id(title=DEFAULT_TITLE, manufacturer=DEFAULT_MANUFACTURER):
+    title_bytes = title.encode("ascii")
+    manufacturer_bytes = manufacturer.encode("ascii")
+    if len(title_bytes) > 32 or len(manufacturer_bytes) > 32:
+        raise ValueError("boot.id title and manufacturer must be at most 32 ASCII bytes")
+    data = bytearray(BOOT_ID_SIZE)
+    data[0:4] = BOOT_ID_MAGIC
+    data[0x20:0x24] = MEDIABOARD_TYPE
+    struct.pack_into(">HBB", data, 0x28, 2026, 11, 26)
+    data[0x30:0x38] = b"THWJ01  "
+    struct.pack_into(">I", data, 0x38, 0x0E)
+    data[0x60:0x80] = manufacturer_bytes.ljust(32, b"\0")
+    data[0x80:0xA0] = title_bytes.ljust(32, b"\0")
+    return bytes(data)
+
+
+def make_triforce_fst(boot_id_offset, boot_id_size=BOOT_ID_SIZE):
+    strings = b"\0boot.id\0"
+    return (struct.pack(">III", 0x01000000, 0, 2)
+            + struct.pack(">III", 1, boot_id_offset, boot_id_size) + strings)
 
 
 def align_up(value, alignment=ALIGNMENT):
@@ -111,8 +136,9 @@ def inspect_gcm(path):
                 file_count += 1
 
         new_fst_offset = align_up(dol_offset + dol_size)
-        new_fst_size = len(EMPTY_FST)
-        output_size = align_up(new_fst_offset + new_fst_size)
+        new_fst_size = 33
+        boot_id_offset = align_up(new_fst_offset + new_fst_size)
+        output_size = align_up(boot_id_offset + BOOT_ID_SIZE)
         return {
             "source_size": image_size,
             "original_game_id": boot[0:6].decode("ascii", "replace"),
@@ -121,6 +147,7 @@ def inspect_gcm(path):
             "dol_entry": entry,
             "fst_offset": new_fst_offset,
             "fst_size": new_fst_size,
+            "boot_id_offset": boot_id_offset,
             "source_fst_files": file_count,
             "app_size": app_size,
             "output_size": output_size,
@@ -174,12 +201,15 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
     dol_offset = info["dol_offset"]
     image[dol_offset:dol_offset + info["dol_size"]] = info["dol"]
     fst_offset = info["fst_offset"]
-    image[fst_offset:fst_offset + len(EMPTY_FST)] = EMPTY_FST
+    boot_id = make_boot_id(title, DEFAULT_MANUFACTURER)
+    fst = make_triforce_fst(info["boot_id_offset"], len(boot_id))
+    image[fst_offset:fst_offset + len(fst)] = fst
+    image[info["boot_id_offset"]:info["boot_id_offset"] + len(boot_id)] = boot_id
 
     image[0:6] = game_id_bytes
     image[0x20:0x40] = title_bytes.ljust(32, b"\0")
     struct.pack_into(">IIII", image, 0x420, dol_offset, fst_offset,
-                     len(EMPTY_FST), len(EMPTY_FST))
+                     info["fst_size"], info["fst_size"])
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as dst:
@@ -192,17 +222,21 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
     with output.open("rb") as f:
         check = f.read(BOOT_SIZE)
         f.seek(fst_offset)
-        fst_check = f.read(len(EMPTY_FST))
+        fst_check = f.read(info["fst_size"])
+        f.seek(info["boot_id_offset"])
+        boot_id_check = f.read(BOOT_ID_SIZE)
     if check[0:6] != game_id_bytes or check[0x20:0x40] != title_bytes.ljust(32, b"\0"):
         raise ValueError("output disc header verification failed")
     if struct.unpack_from(">I", check, 0x1C)[0] != MAGIC:
         raise ValueError("output GameCube magic changed unexpectedly")
     if struct.unpack_from(">IIII", check, 0x420) != (
-        dol_offset, fst_offset, len(EMPTY_FST), len(EMPTY_FST)
+        dol_offset, fst_offset, info["fst_size"], info["fst_size"]
     ):
         raise ValueError("output DOL/FST pointers did not verify")
-    if fst_check != EMPTY_FST:
-        raise ValueError("output empty FST did not verify")
+    if fst_check != make_triforce_fst(info["boot_id_offset"]):
+        raise ValueError("output Triforce FST did not verify")
+    if boot_id_check != make_boot_id(title, DEFAULT_MANUFACTURER):
+        raise ValueError("output boot.id metadata did not verify")
     return info
 
 
