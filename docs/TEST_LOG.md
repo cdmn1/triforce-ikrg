@@ -5,7 +5,7 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 ## 2026-11-26 — project initialization
 
 - Stage: Repository scaffold
-- Status: Implemented; CI result pending
+- Status: Implemented; first CI build passed in run #6
 - Artifact target: triforce-hello-v01.dol
 - Build environment: devkitpro/devkitppc:20261102
 - Source: source/main.c
