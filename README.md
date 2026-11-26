@@ -13,10 +13,10 @@ Research and development project to establish a reproducible workflow for buildi
 | DOL structural validation | Passed (run #6) |
 | GameCube source-image inspection | Passed for Ikaruga USA (run [45897021932](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897021932)) |
 | System-area component extraction | Passed (run [45897618626](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897618626)); BI2 field decoding added, CI rerun pending |
-| GameCube disc-image packaging | Candidate DOL replacement utility and ephemeral CI test added; run pending |
+| GameCube disc-image packaging | Candidate GCM boots in Dolphin 2609b; packaged BIN retest pending |
 | NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware not tested |
 | Triforce NetDIMM BIN format | Raw image transfer is supported by legacy tool evidence; custom homebrew header/SegaBoot acceptance not verified |
-| Emulator boot | Not tested |
+| Emulator boot | Passed in Dolphin 2609b with Triforce Baseboard enabled (user-confirmed 2026-11-26) |
 | Real Triforce boot | Not tested |
 | JVS input | Not implemented |
 
@@ -29,7 +29,7 @@ GitHub Actions uses the official devkitPro devkitPPC container. No local toolcha
 ## Principles
 
 - Keep Hello World self-contained: no DVD reads, filesystem, network, Joybus input or external assets.
-- Keep ordinary GameCube disc packaging separate from Triforce NetDIMM packaging until the latter is established.
+- Keep the GCM candidate and experimental raw NetDIMM payload stages distinct; never describe emulator success as hardware confirmation.
 - Never include copyrighted IPL, SegaBoot, apploader or game data in this repository.
 - Record toolchain versions, build results, image hashes and test observations.
 - Distinguish emulator observations from real hardware confirmation.
