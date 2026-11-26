@@ -108,3 +108,29 @@ The inspection workflow has now been extended to extract these components into e
 It also prints the first 16 BI2 big-endian words for analysis. The extracted copyrighted components are not uploaded as artifacts, committed to this repository, or retained after the job; the cleanup step removes the temporary image and extracted files.
 
 This establishes a reproducible way to inspect the owned source dump. It does not establish that a rebuilt ISO is accepted by SegaBoot/Triforce NetDIMM, nor does it establish that replacing the DOL alone is sufficient for an executable homebrew disc.
+
+
+## Verified system-area component extraction (2026-11-26)
+
+Workflow run [45897618626](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897618626) completed successfully, including the component extraction and cleanup steps.
+
+The workflow extracted these byte ranges from the user's Ikaruga (USA) image into temporary runner storage:
+
+| Component | Size | SHA-256 |
+|---|---:|---|
+| `boot.bin` | 1,088 bytes (0x440) | `01a145fd1fe763015321b75e56652478a9bb718dd7fc37d092beea9e17c6c69c` |
+| `bi2.bin` | 8,192 bytes (0x2000) | `7294bc146d7ad38f7fd8b02038e563dc9380ff272b66e9bd215631def4fd6cec` |
+| `apploader.img` | 113,508 bytes | `1a864e15684124c72e55abb3dc283acccc97ce3fa5dd0f60dee17317b17819ec` |
+| `main.dol` | 1,489,152 bytes | `2c149f4bca8e05c051feb9d4dec066326e4243c6f49aff51712dcde87261ed0a` |
+| `fst.bin` | 31,476 bytes (0x7AF4) | `b54e6ac5091c058aef25ff4dd565b2816e404b60057cb209d27e0c22b611ee3b` |
+
+Range consistency checks:
+- Boot header: `0x0000–0x0440`
+- BI2: `0x0440–0x2440`
+- Apploader: `0x2440–0x1DFA4` (header + declared code + trailer)
+- Main DOL: `0x1E000–0x189900` (header and file-backed section extents)
+- FST: `0x189900–0x1913F4`
+
+The DOL range ends exactly at the FST start. The BI2 inspection printed the first 16 big-endian words; the values at offsets +0x18, +0x1C and +0x20 were 1, while the other displayed words were 0. These raw values are recorded without assigning meanings until the field layout is independently verified.
+
+The workflow deleted the source RVZ, converted ISO, extracted components and converter working tree during cleanup. No binary component or game image was uploaded or committed. This is a successful extraction/fingerprinting test, not a boot test.
