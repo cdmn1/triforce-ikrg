@@ -35,9 +35,9 @@ def make_boot_id(title=DEFAULT_TITLE, manufacturer=DEFAULT_MANUFACTURER):
     data = bytearray(BOOT_ID_SIZE)
     data[0:4] = BOOT_ID_MAGIC
     data[0x20:0x24] = MEDIABOARD_TYPE
-    struct.pack_into(">HBB", data, 0x28, 2026, 11, 26)
+    struct.pack_into("<HBB", data, 0x28, 2026, 11, 26)
     data[0x30:0x38] = b"THWJ01  "
-    struct.pack_into(">I", data, 0x38, 0x0E)
+    struct.pack_into("<I", data, 0x38, 0x0E)
     data[0x60:0x80] = manufacturer_bytes.ljust(32, b"\0")
     data[0x80:0xA0] = title_bytes.ljust(32, b"\0")
     return bytes(data)
@@ -274,7 +274,7 @@ def main():
     print(f"DOL: offset 0x{info['dol_offset']:X}, size {info['dol_size']:,} bytes, entry 0x{info['dol_entry']:08X}")
     print(f"Apploader: {info['app_size']:,} bytes")
     print(f"Original FST files removed: {info['source_fst_files']}")
-    print(f"New FST: offset 0x{info['fst_offset']:X}, empty root only ({info['fst_size']} bytes)")
+    print(f"New FST: offset 0x{info['fst_offset']:X}, root + boot.id ({info['fst_size']} bytes)")
     print(f"SHA-256: {sha256_file(args.output_bin)}")
     print("Payload: compact raw GameCube/Triforce-style image; no wrapper, encryption or upload.")
     print("NOTE: this Hello World performs no disc/file reads; original FST files are intentionally omitted.")
