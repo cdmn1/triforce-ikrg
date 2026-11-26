@@ -2,7 +2,7 @@
 
 Research and development project to establish a reproducible workflow for building, packaging, validating and booting custom software on Sega/Namco/Nintendo Triforce arcade hardware.
 
-**Current milestone:** first minimal GameCube Hello World DOL built and structurally validated by CI. This is not yet a verified Triforce NetDIMM image or hardware boot.
+**Current milestone:** minimal GameCube Hello World DOL built and structurally validated; an owned Ikaruga RVZ has now been downloaded, converted and structurally inspected in GitHub Actions. This is not yet a verified Triforce NetDIMM image or hardware boot.
 
 ## Status
 
@@ -11,7 +11,7 @@ Research and development project to establish a reproducible workflow for buildi
 | devkitPPC in GitHub Actions | Passed (run #6) |
 | Minimal framebuffer Hello World | Compiled into DOL |
 | DOL structural validation | Passed (run #6) |
-| GameCube disc-image packaging | Research only; standard images evidenced for specific Triforce games |\n| NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware not tested |
+| GameCube source-image inspection | Passed for Ikaruga USA (run [45897021932](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897021932)) |\n| System-area component extraction | Workflow added; awaiting validation run |\n| GameCube disc-image packaging | Research only; standard images evidenced for specific Triforce games |\n| NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware not tested |
 | Triforce NetDIMM BIN format | Not verified |
 | Emulator boot | Not tested |
 | Real Triforce boot | Not tested |
