@@ -1,0 +1,56 @@
+name: Build Triforce Hello World
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build GameCube DOL
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkitppc:20261102
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show toolchain versions
+        run: |
+          powerpc-eabi-gcc --version
+          make --version
+          command -v elf2dol
+
+      - name: Build
+        run: |
+          make clean
+          make
+
+      - name: Validate DOL
+        run: |
+          test -s build/triforce-hello.dol
+          python3 scripts/validate_dol.py build/triforce-hello.dol
+
+      - name: Create versioned artifact
+        run: |
+          mkdir -p dist
+          cp build/triforce-hello.dol dist/triforce-hello-v01.dol
+          sha256sum dist/triforce-hello-v01.dol > dist/SHA256SUMS.txt
+          {
+            echo "Triforce Hello World v01"
+            echo "Commit: $GITHUB_SHA"
+            echo "Container: devkitpro/devkitppc:20261102"
+            echo "Artifact: triforce-hello-v01.dol"
+          } > dist/BUILD-INFO.txt
+
+      - name: Upload DOL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: triforce-hello-v01
+          path: dist/
+          if-no-files-found: error
