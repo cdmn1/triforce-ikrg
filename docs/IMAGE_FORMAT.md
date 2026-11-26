@@ -84,3 +84,27 @@ The file extension BIN is not a format specification. A renamed ISO is still an 
 ## Copyright and security
 
 Do not put IPL dumps, SegaBoot, copyrighted apploader/system files, game images, security keys or PIC bypass material in this repository. Document how to use legitimately obtained local system data without distributing it.
+
+
+## Verified source image inspection (2026-11-26)
+
+The private GitHub Actions inspection workflow successfully downloaded and converted the user's Ikaruga (USA) RVZ dump. The source file was 141,130,444 bytes (SHA-256 `64b3c6b6c11643f08d3e0849ebfcf9550ee70b3c970a26ab5bde385ee05d46d7`); conversion produced a 1,459,978,240-byte GameCube ISO.
+
+Observed disc metadata:
+- Game ID: `GIKE`; maker: `70`; disc number/version: 0/0.
+- GameCube boot magic: `0xC2339F3D`.
+- DOL offset: `0x1E000`; entry point: `0x80003140`; eight file-backed sections.
+- FST offset: `0x189900`; size/max size: `0x7AF4`.
+- Apploader date: `2002/04/10`; entry: `0x81200268`; code size: 5,588 bytes; trailer size: 107,888 bytes.
+- No ordinary FST entries were found under `sys/`; boot header, BI2 and apploader are system-area structures, not ordinary FST files.
+
+The inspection workflow has now been extended to extract these components into ephemeral runner storage and print their sizes and SHA-256 fingerprints:
+- `boot.bin` (0x440 bytes)
+- `bi2.bin` (0x2000 bytes)
+- `apploader.img` (header + declared code + trailer)
+- `main.dol` (header + all file-backed sections)
+- `fst.bin`
+
+It also prints the first 16 BI2 big-endian words for analysis. The extracted copyrighted components are not uploaded as artifacts, committed to this repository, or retained after the job; the cleanup step removes the temporary image and extracted files.
+
+This establishes a reproducible way to inspect the owned source dump. It does not establish that a rebuilt ISO is accepted by SegaBoot/Triforce NetDIMM, nor does it establish that replacing the DOL alone is sufficient for an executable homebrew disc.
