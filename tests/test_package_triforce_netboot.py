@@ -52,7 +52,7 @@ class PackageTest(unittest.TestCase):
             boot_id = data[file_offset:file_offset + file_size]
             self.assertEqual(boot_id[:4], b"BTID")
             self.assertEqual(boot_id[0x20:0x24], b"GCAM")
-            self.assertEqual(struct.unpack_from(">I", boot_id, 0x38)[0], 0x0E)
+            self.assertEqual(struct.unpack_from("<I", boot_id, 0x38)[0], 0x0E)
             self.assertEqual(boot_id[0x80:0xA0].rstrip(b"\0"), module.DEFAULT_TITLE.encode())
             self.assertEqual(data[0x3100:0x3120], b"D" * 0x20)
             self.assertNotIn(b"file.bin", data)
