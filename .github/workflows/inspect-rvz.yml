@@ -12,11 +12,46 @@ permissions:
   contents: read
 
 jobs:
+  build-homebrew-dol:
+    name: Build replacement Hello World DOL
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkitppc:20261102
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+      - name: Build and validate Hello World DOL
+        run: |
+          set -euo pipefail
+          export PATH="${DEVKITPPC}/bin:${DEVKITPRO}/tools/bin:${PATH}"
+          make clean
+          make
+          python3 scripts/validate_dol.py triforce-hello.dol
+          mkdir -p dist
+          cp triforce-hello.dol dist/triforce-hello-v01.dol
+          sha256sum dist/triforce-hello-v01.dol
+      - name: Upload temporary DOL for candidate construction
+        uses: actions/upload-artifact@v4
+        with:
+          name: triforce-hello-candidate-dol
+          path: dist/triforce-hello-v01.dol
+          if-no-files-found: error
+
   inspect:
+    needs: build-homebrew-dol
     name: Download and inspect GameCube RVZ
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Download Hello World DOL from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: triforce-hello-candidate-dol
+          path: ${{ runner.temp }}/triforce-inspect/dol
+
       - name: Download source image privately
         env:
           SOURCE_URL: ${{ inputs.source_url }}
@@ -224,6 +259,16 @@ jobs:
               print(f"DOL RANGE: 0x{dol_off:X}..0x{dol_off+dol_size:X}")
               print(f"FST RANGE: 0x{fst_off:X}..0x{fst_off+fst_size:X} (max declared 0x{fst_max:X})")
           PY
+
+      - name: Build and structurally verify candidate homebrew GCM
+        run: |
+          set -euo pipefail
+          python3 scripts/replace_gcm_dol.py \
+            "$RUNNER_TEMP/triforce-inspect/source.iso" \
+            "$RUNNER_TEMP/triforce-inspect/dol/triforce-hello-v01.dol" \
+            "$RUNNER_TEMP/triforce-inspect/candidate-homebrew.iso"
+          echo "Candidate image kept only in ephemeral runner storage; no game image artifact will be uploaded."
+          rm -f "$RUNNER_TEMP/triforce-inspect/candidate-homebrew.iso"
 
       - name: Remove temporary game image
         if: always()
