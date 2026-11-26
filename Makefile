@@ -12,9 +12,9 @@ SOURCES  := source
 DATA     :=
 INCLUDES :=
 
-CFLAGS   := -O2 -Wall -Wextra $(MACHDEP) $(INCLUDE)
-CXXFLAGS := $(CFLAGS)
-LDFLAGS  := $(MACHDEP)
+CFLAGS   = -O2 -Wall -Wextra $(MACHDEP) $(INCLUDE)
+CXXFLAGS = $(CFLAGS)
+LDFLAGS  = $(MACHDEP)
 LIBS     := -logc -lm
 LIBDIRS  := $(PORTLIBS)
 
