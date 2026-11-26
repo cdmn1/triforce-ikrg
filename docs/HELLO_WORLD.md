@@ -16,7 +16,7 @@ GitHub Actions uses the official devkitPro devkitPPC container and standard Game
 
 ## Artifact
 
-The first build artifact is triforce-hello-v01.dol. The version suffix ties test results to an exact binary.
+The first build artifact is `triforce-hello-v01.dol`. The version suffix ties test results to an exact binary.\n\nSuccessful CI run: [#6](https://github.com/cdmn1/triforce-ikrg/actions/runs/45882393884), commit `aba0cbe01cb60837d80a12c3e69cef2143b8801f`. The workflow completed toolchain detection, compilation, ELF-to-DOL conversion, structural validation and artifact upload. Artifact name: `triforce-hello-v01`.
 
 ## What a passing build proves
 
