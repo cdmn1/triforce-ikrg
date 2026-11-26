@@ -167,7 +167,7 @@ References:
 
 ## Controlled Hello World DOL replacement experiment
 
-A new utility, `scripts/replace_gcm_dol.py`, builds a candidate GameCube image from an operator-owned ISO and this project's Hello World DOL. It replaces the DOL in-place at the boot header's declared DOL offset, zero-fills only the remaining space up to the original FST, and leaves the boot header, BI2, apploader, FST, image length and all other game data untouched.
+A new utility, `scripts/replace_gcm_dol.py`, builds a candidate GameCube image from an operator-owned ISO and this project's Hello World DOL. It replaces only the replacement DOL's byte range at the boot header's declared DOL offset, leaving the remaining original DOL-area bytes intact. It leaves the boot header, BI2, apploader, FST, image length and all bytes outside the replacement DOL range untouched.
 
 The utility checks the GameCube magic, source DOL/FST ranges, apploader extent, replacement DOL section bounds and entry point, available DOL slot capacity, and byte-for-byte preservation of the boot header, BI2, apploader and FST after writing.
 
