@@ -49,3 +49,21 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Prints sizes, SHA-256 hashes, BI2 first 16 words and component ranges.
 - Extracted copyrighted data remains only in ephemeral runner storage and is removed by the always-run cleanup step.
 - Status: Workflow update committed; new run required to validate this extraction step.
+
+
+## 2026-11-26 — Ikaruga system-area component extraction
+
+- Stage: Extract and fingerprint GameCube boot/system components
+- Status: PASS
+- Workflow run: [45897618626](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897618626)
+- Source RVZ: 141,130,444 bytes; SHA-256 `64b3c6b6c11643f08d3e0849ebfcf9550ee70b3c970a26ab5bde385ee05d46d7`
+- Converted ISO: 1,459,978,240 bytes
+- Extracted temporarily: boot.bin 1,088 bytes; bi2.bin 8,192 bytes; apploader.img 113,508 bytes; main.dol 1,489,152 bytes; fst.bin 31,476 bytes.
+- All five component reads and SHA-256 calculations passed.
+- Layout: boot 0x0000–0x0440; BI2 0x0440–0x2440; apploader 0x2440–0x1DFA4; DOL 0x1E000–0x189900; FST 0x189900–0x1913F4.
+- BI2 raw-word sample: +0x18, +0x1C and +0x20 are 1; other displayed words +0x00 through +0x3C are 0. Semantics not yet assigned.
+- Cleanup: PASS. RVZ, ISO, extracted component files and converter working tree removed from the ephemeral runner.
+- Artifacts: None uploaded.
+- Emulator: Not tested.
+- Real Triforce: Not tested.
+- Interpretation: source system-area extraction works. Rebuilt GCM and Triforce NetDIMM payload compatibility remain unverified.
