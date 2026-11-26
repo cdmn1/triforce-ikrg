@@ -36,7 +36,7 @@ GitHub Actions uses the official devkitPro devkitPPC container. No local toolcha
 
 ## Important caveat
 
-A DOL is an executable, not a complete disc image. The current packager takes the tested candidate GCM, preserves all FST-referenced files and system structures, trims only the unreferenced tail, aligns the result to 32 bytes, enforces a 512 MiB DIMM limit, and writes a six-character homebrew ID/title into the 0x40-byte disc header. This is an experimental raw payload, not yet proven to pass real SegaBoot. Do not rename a DOL to BIN and assume it is bootable.
+A DOL is an executable, not a complete disc image. The current Hello World packager takes the tested candidate GCM, validates its FST and file extents, then builds a compact image containing the boot header, BI2, apploader and DOL with an empty root-only FST (the program has no disc/file reads). It aligns the result to 32 bytes, enforces a 512 MiB DIMM limit, and writes a six-character homebrew ID/title into the 0x40-byte disc header. This is an experimental raw payload, not yet proven to pass real SegaBoot. Do not rename a DOL to BIN and assume it is bootable.
 
 ## References
 
