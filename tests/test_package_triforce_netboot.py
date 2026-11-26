@@ -1,8 +1,8 @@
 import importlib.util
+import struct
 import tempfile
 import unittest
 from pathlib import Path
-import struct
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "package_triforce_netboot.py"
 spec = importlib.util.spec_from_file_location("package_triforce_netboot", SCRIPT)
@@ -30,19 +30,27 @@ def make_test_gcm(path):
 
 
 class PackageTest(unittest.TestCase):
-    def test_packages_and_trims_to_last_file_extent(self):
+    def test_builds_compact_raw_payload_with_empty_fst(self):
         with tempfile.TemporaryDirectory() as td:
             source = Path(td) / "source.iso"
             output = Path(td) / "hello.bin"
             make_test_gcm(source)
             info = module.package_image(source, output)
-            self.assertEqual(info["payload_size"], 0x3900)
-            self.assertEqual(output.stat().st_size, 0x3900)
+            self.assertEqual(info["source_fst_files"], 1)
+            self.assertEqual(output.stat().st_size, info["output_size"])
+            self.assertLess(output.stat().st_size, source.stat().st_size)
             data = output.read_bytes()
             self.assertEqual(data[:6], b"THWJ01")
             self.assertEqual(data[0x20:0x40], module.DEFAULT_TITLE.encode().ljust(32, b"\0"))
             self.assertEqual(struct.unpack_from(">I", data, 0x1C)[0], module.MAGIC)
-            self.assertEqual(data[0x3800:0x3900], b"X" * 0x100)
+            dol_offset, fst_offset, fst_size, fst_max = struct.unpack_from(">IIII", data, 0x420)
+            self.assertEqual(dol_offset, 0x3000)
+            self.assertEqual(fst_size, len(module.EMPTY_FST))
+            self.assertEqual(fst_max, len(module.EMPTY_FST))
+            self.assertEqual(data[fst_offset:fst_offset + fst_size], module.EMPTY_FST)
+            self.assertEqual(data[0x3100:0x3120], b"\0" * 0x20)
+            self.assertLess(fst_offset, len(data))
+            self.assertNotIn(b"file.bin", data)
 
     def test_refuses_payload_over_limit_without_output(self):
         with tempfile.TemporaryDirectory() as td:
@@ -50,7 +58,7 @@ class PackageTest(unittest.TestCase):
             output = Path(td) / "hello.bin"
             make_test_gcm(source)
             with self.assertRaises(ValueError):
-                module.package_image(source, output, max_size=0x3800)
+                module.package_image(source, output, max_size=0x3000)
             self.assertFalse(output.exists())
 
 
