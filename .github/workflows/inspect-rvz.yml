@@ -36,7 +36,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends cmake ninja-build g++ zlib1g-dev
-          git clone --depth 1 https://github.com/dnutt/iso2rvz.git "$RUNNER_TEMP/iso2rvz"
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/dnutt/iso2rvz.git "$RUNNER_TEMP/iso2rvz"
           cmake -S "$RUNNER_TEMP/iso2rvz" -B "$RUNNER_TEMP/iso2rvz/build" -G Ninja -DCMAKE_BUILD_TYPE=Release
           ninja -C "$RUNNER_TEMP/iso2rvz/build"
           test -x "$RUNNER_TEMP/iso2rvz/build/iso2rvz"
