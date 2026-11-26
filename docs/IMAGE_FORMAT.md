@@ -20,7 +20,31 @@ python -m pyisotools extracted B --dest output.iso
 
 The documented tool usage does not establish that its output is suitable for a real Triforce NetDIMM. A normal GameCube ISO does not automatically establish the correct Triforce media-board/NetDIMM format.
 
-## Evidence gathered (2026-11-26)\n\n- OpenGP's Triforce hardware notes identify standard GameCube disc images for its documented Mario Kart Arcade GP (GGPE01) and GP 2 (GGPE02) targets. The notes describe the real boot path as Segaboot initializing the media board, loading the game from DIMM into RAM, and jumping to the DOL entry point. This is strong evidence for those game images, not proof that every Triforce board/game or every NetDIMM upload path accepts an arbitrary rebuilt ISO.\n- Dolphin's Triforce hardware article explains that Triforce storage varied: most games used GD-ROM with DIMM RAM, while Namco GP titles used NAND cartridges. Both deliver a disc image to the internal GameCube, but the storage and board protocol differ.\n- Dolphin's Triforce boot implementation runs the disc apploader, initializes the DIMM from the disc image and seeds media-board command keys from the first 12 bytes of low memory. This confirms that Triforce execution is not simply a retail GameCube DOL launch.\n- DragonMinded's `netboot` utility advertises NetDIMM transfers for Naomi, Triforce and Chihiro, but its README explicitly says it has been tested on Naomi and not verified on Triforce/Chihiro. It is a candidate for understanding the transport layer, not proof of Triforce compatibility.\n\nReferences:\n- https://github.com/OpenGP-dev/OpenGP/blob/main/docs/triforce.md\n- https://dolphin-emu.org/blog/2026/02/16/rise-of-the-triforce/\n- https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/Core/Boot/Boot_BS2Emu.cpp\n- https://github.com/DragonMinded/netboot\n\n## Safe packaging investigation
+## Evidence gathered (2026-11-26)\n\n- OpenGP's Triforce hardware notes identify standard GameCube disc images for its documented Mario Kart Arcade GP (GGPE01) and GP 2 (GGPE02) targets. The notes describe the real boot path as Segaboot initializing the media board, loading the game from DIMM into RAM, and jumping to the DOL entry point. This is strong evidence for those game images, not proof that every Triforce board/game or every NetDIMM upload path accepts an arbitrary rebuilt ISO.\n- Dolphin's Triforce hardware article explains that Triforce storage varied: most games used GD-ROM with DIMM RAM, while Namco GP titles used NAND cartridges. Both deliver a disc image to the internal GameCube, but the storage and board protocol differ.\n- Dolphin's Triforce boot implementation runs the disc apploader, initializes the DIMM from the disc image and seeds media-board command keys from the first 12 bytes of low memory. This confirms that Triforce execution is not simply a retail GameCube DOL launch.\n- DragonMinded's `netboot` utility advertises NetDIMM transfers for Naomi, Triforce and Chihiro, but its README explicitly says it has been tested on Naomi and not verified on Triforce/Chihiro. It is a candidate for understanding the transport layer, not proof of Triforce compatibility.\n\nReferences:\n- https://github.com/OpenGP-dev/OpenGP/blob/main/docs/triforce.md\n- https://dolphin-emu.org/blog/2026/02/16/rise-of-the-triforce/\n- https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/Core/Boot/Boot_BS2Emu.cpp\n- https://github.com/DragonMinded/netboot\n\n## NetDIMM transport versus payload format
+
+The legacy Triforce-specific `triforcetools.py` source provides concrete evidence about the upload transport:
+
+- It opens a TCP connection to the NetDIMM service (the Piforce wrapper uses port 10703).
+- `DIMM_UploadFile` reads the selected file in 0x8000-byte chunks and sends each chunk to DIMM memory.
+- It computes a CRC over the transferred bytes, writes a final marker, then sends the CRC and total length with `DIMM_SetInformation`.
+- The Piforce project lists Triforce as a target and stores game entries as binary files (commonly named `.bin`).
+
+This suggests the uploader does not wrap a DOL into a disc image. It transfers the selected file byte-for-byte into DIMM memory and records transfer metadata. The file's contents must already be in a format the Triforce boot software understands.
+
+Important limitations:
+
+- The inspected Piforce implementation is old Python 2 code and should be treated as protocol research, not as the uploader we will ship.
+- The newer DragonMinded/netboot project also lists Triforce, but explicitly says its non-Naomi operation has not been verified.
+- We have not yet established whether SegaBoot expects a raw DOL, a complete GameCube disc image, a Triforce-specific game image, or a particular header/container.
+- A successful upload/CRC does not prove that SegaBoot can boot the payload.
+
+References:
+- https://github.com/travistyoj/piforcetools/blob/master/triforcetools.py
+- https://github.com/travistyoj/piforcetools
+- https://github.com/DragonMinded/netboot
+- https://www.arcade-projects.com/threads/updating-a-triforce-type-3-to-use-cf-cards-tutorial.18576/
+
+## Safe packaging investigation
 
 1. Obtain a legally dumped, known-good GameCube or Triforce disc image from hardware the operator owns.
 2. Record source filename, size and SHA-256 locally; do not commit copyrighted system data or game contents.
