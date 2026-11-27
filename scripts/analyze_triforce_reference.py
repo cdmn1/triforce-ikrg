@@ -146,6 +146,8 @@ def inspect(path):
             if len(data) >= 0x2C:
                 year, month, day = struct.unpack_from("<HBB", data, 0x28)
                 lines.append(f"BOOT.ID DATE: {year:04d}-{month:02d}-{day:02d}")
+            lines.append(f"BOOT.ID DATE RAW: {data[0x28:0x2C].hex().upper()}")
+            lines.append(f"REGION FLAGS RAW: {data[0x38:0x3C].hex().upper()}")
             lines.append(f"BOOT ID: {data[0x30:0x34].decode('ascii', 'replace')}")
             lines.append(f"REGION/FLAGS: 0x{struct.unpack_from('<I', data, 0x38)[0]:08X}" if len(data) >= 0x3C else "REGION/FLAGS: truncated")
             lines.append(f"MANUFACTURER: {ascii_field(data[0x60:0x80])}")
