@@ -79,3 +79,28 @@ See `docs/` for research, build instructions, packaging investigation and test l
 - https://github.com/OpenGP-dev/OpenGP/blob/main/docs/triforce.md
 - https://dolphin-emu.org/blog/2026/02/16/rise-of-the-triforce/
 - https://github.com/JoshuaMKW/pyisotools
+
+
+## v07: Triforce SI/JVS input probe
+
+The v07 DOL replaces the passive Hello World wait loop with a diagnostic that talks to
+the Triforce baseboard on SI channel 0. It sends a JVS broadcast SetAddress request,
+then repeatedly requests one player's switch inputs through the GC-AM JVS-IO command.
+
+The display reports:
+- JVS SwitchInput response validity
+- JVS system-input byte, including the Test bit (0x80)
+- Player 1 switch byte 0, including the Service bit (0x40)
+- Player 1 switch byte 1
+
+This follows Dolphin's current Triforce implementation: its AM-baseboard SI device forwards
+GC-AM command 0x40 to JVS-IO, and JVS command 0x20 returns the system-input byte followed
+by player switch bytes. Dolphin's Triforce I/O adapter maps Test to system-input bit 7 when
+SegaBoot is loaded, and Service to bit 6 of player 1 switch byte 0.
+
+The probe does not call OSResetSystem, change the DIMM, or write firmware. A successful
+input read will establish that the emulated SI/JVS input path is working; it will not by
+itself launch SegaBoot or prove real Triforce hardware compatibility.
+
+Build artifact: `triforce-hello-v07`. Package the DOL into a compact image using the
+same v06 `package_triforce_netboot.py` tool and your existing `candidate-homebrew.iso`.
