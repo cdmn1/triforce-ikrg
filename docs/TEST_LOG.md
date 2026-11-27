@@ -121,3 +121,18 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Next investigation: determine the exact Triforce reset/firmware-map hand-off sequence. Dolphin's current AMMediaboard source checks reset flag `0x811FFF00 == 1` during an AM-Mediaboard DI command whose decoded offset is `0x2440`; it enables firmware mapping unless the SegaBoot signature at `0x8006BF70` is present. This is a source-level clue, not yet a proven complete reset procedure.
 - Safety: v07 did not write firmware, set the reset flag, or reset the emulated machine.
 - Real Triforce hardware: not tested.
+
+
+## 2026-11-27 — Triforce firmware-map probe v08 build
+
+- Stage: Compile and structural validation of an emulator-only DI probe.
+- Status: CI PASS; Dolphin test pending.
+- Workflow run: [46045326064](https://github.com/cdmn1/triforce-ikrg/actions/runs/46045326064) (run #119).
+- Artifact: `triforce-hello-v08`; artifact ID `15222100836`.
+- Source: `source/main.c` at commit `58b5bd086b396ca049c87a072ff8adc89aeaf38e`.
+- The probe reads the three DI decoder key words at RAM 0/4/8, uses a seed of 1, sets the emulator's reset flag at `0x811FFF00`, issues a read command at byte offset `0x2440`, then reads 0x40 bytes from offset zero.
+- It displays the returned GCM ID, title and magic to distinguish the packaged game image from a different firmware image.
+- It does not reset the CPU, issue DI Write/Execute commands, or write firmware. The firmware-read flag remains set in Dolphin until the emulator is restarted.
+- Safety scope: Dolphin Triforce mode only. Do not test this probe on real Triforce hardware.
+- Emulator result: pending user test.
+- Real Triforce: not tested.
