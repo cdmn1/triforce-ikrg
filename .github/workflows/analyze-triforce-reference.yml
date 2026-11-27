@@ -24,6 +24,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y p7zip-full
 
+      - name: Install PowerPC disassembler
+        run: |
+          python3 -m venv "$RUNNER_TEMP/analysis-venv"
+          "$RUNNER_TEMP/analysis-venv/bin/pip" install capstone
+          echo "$RUNNER_TEMP/analysis-venv/bin" >> "$GITHUB_PATH"
+
       - name: Download reference archive from Dropbox
         env:
           DROPBOX_URL: "https://www.dropbox.com/scl/fi/5mg9tk51s3k6jp2u82wzf/tf-virtuastriker2002_SBEY.7z?rlkey=k6r21a1n3uu52jk0baokoghhq&st=n8c3n3bq&dl=1"
@@ -54,8 +60,14 @@ jobs:
             "$RUNNER_TEMP/triforce-reference/extracted" \
             --output "$RUNNER_TEMP/triforce-reference/reference-analysis.txt"
           mkdir -p dist
+          IMAGE=$(find "$RUNNER_TEMP/triforce-reference/extracted" -type f \\
+            \\( -iname "*.bin" -o -iname "*.iso" -o -iname "*.gcm" \\) -print -quit)
+          test -n "$IMAGE"
+          python3 scripts/analyze_triforce_ppc.py "$IMAGE" \\
+            --output "$RUNNER_TEMP/triforce-reference/powerpc-analysis.txt"
           cp "$RUNNER_TEMP/triforce-reference/reference-analysis.txt" dist/
-          sha256sum dist/reference-analysis.txt > dist/SHA256SUMS.txt
+          cp "$RUNNER_TEMP/triforce-reference/powerpc-analysis.txt" dist/
+          sha256sum dist/reference-analysis.txt dist/powerpc-analysis.txt > dist/SHA256SUMS.txt
 
       - name: Upload metadata report only
         uses: actions/upload-artifact@v4
