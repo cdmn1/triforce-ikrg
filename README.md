@@ -2,7 +2,7 @@
 
 Research and development project to establish a reproducible workflow for building, packaging, validating and booting custom software on Sega/Namco/Nintendo Triforce arcade hardware.
 
-**Current milestone:** v07 has a valid JVS SwitchInput response in Dolphin 2609b, and both mapped Test and Service buttons are confirmed in the returned JVS data. Dolphin source shows that Test is only exposed when its SegaBoot firmware file has loaded, so this also confirms SegaBoot availability in the emulator. The next milestone is to establish the exact reset/firmware-map hand-off sequence. Real Triforce hardware has not been tested.
+**Current milestone:** v07 has a valid JVS SwitchInput response in Dolphin 2609b, and both mapped Test and Service buttons are confirmed. Static analysis of the known-good Virtua Striker 2002 DOL exposed its Triforce DI command encoder and its apploader read at offset `0x2440`. v08 is a read-only experiment that sets the reset flag in emulated RAM, issues an encrypted DI read at `0x2440`, then reads the emulated firmware header. It does not reset the CPU or write firmware. Real Triforce hardware has not been tested.
 
 ## Status
 
@@ -47,10 +47,10 @@ GitHub Actions uses the official devkitPro devkitPPC container. No local toolcha
 
 To package a versioned DOL, explicitly pass that DOL to the packaging script. The source GCM supplies the boot header, BI2 and apploader; the `--dol` argument supplies the executable placed in the output BIN. Without `--dol`, the script falls back to the DOL embedded in the source GCM.
 
-For the v07 probe, put `candidate-homebrew.iso`, `triforce-hello-v07.dol` and `package_triforce_netboot.py` in the same folder, then run:
+For the v08 probe, put `candidate-homebrew.iso`, `triforce-hello-v08.dol` and `package_triforce_netboot.py` in the same folder, then run:
 
 ```text
-python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v07.bin --dol triforce-hello-v07.dol
+python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v08.bin --dol triforce-hello-v08.dol
 ```
 
 The packager validates the replacement DOL's sections and entry point, recalculates the FST position, and enforces the 512 MiB DIMM size limit.
