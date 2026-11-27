@@ -25,10 +25,11 @@ DEFAULT_MAX_SIZE = 512 * 1024 * 1024
 DEFAULT_GAME_ID = "GVSJ8P"
 DEFAULT_BOOT_ID = "SBEY"
 DEFAULT_TITLE = "TRIFORCE NETBOOT HELLO WORLD"
-DEFAULT_MANUFACTURER = "TRIFORCE HOMEBREW"
+DEFAULT_MANUFACTURER = "SEGA CORPORATION"
+DEFAULT_REGION_FLAGS = 0x0C
 
 
-def make_boot_id(boot_id=DEFAULT_BOOT_ID, title=DEFAULT_TITLE, manufacturer=DEFAULT_MANUFACTURER):
+def make_boot_id(boot_id=DEFAULT_BOOT_ID, title=DEFAULT_TITLE, manufacturer=DEFAULT_MANUFACTURER, region_flags=DEFAULT_REGION_FLAGS):
     boot_id_bytes = boot_id.encode("ascii")
     title_bytes = title.encode("ascii")
     manufacturer_bytes = manufacturer.encode("ascii")
@@ -39,9 +40,9 @@ def make_boot_id(boot_id=DEFAULT_BOOT_ID, title=DEFAULT_TITLE, manufacturer=DEFA
     data = bytearray(BOOT_ID_SIZE)
     data[0:4] = BOOT_ID_MAGIC
     data[0x20:0x24] = MEDIABOARD_TYPE
-    struct.pack_into("<HBB", data, 0x28, 2026, 11, 26)
+    struct.pack_into(">HBB", data, 0x28, 2002, 7, 30)
     data[0x30:0x38] = boot_id_bytes + b"    "
-    struct.pack_into("<I", data, 0x38, 0x0E)
+    struct.pack_into("<I", data, 0x38, region_flags)
     data[0x60:0x80] = manufacturer_bytes.ljust(32, b"\0")
     data[0x80:0xA0] = title_bytes.ljust(32, b"\0")
     return bytes(data)
@@ -171,7 +172,7 @@ def sha256_file(path):
 
 
 def package_image(source, output, game_id=DEFAULT_GAME_ID, boot_id=DEFAULT_BOOT_ID,
-                  title=DEFAULT_TITLE, max_size=DEFAULT_MAX_SIZE):
+                  title=DEFAULT_TITLE, max_size=DEFAULT_MAX_SIZE, region_flags=DEFAULT_REGION_FLAGS):
     source = Path(source)
     output = Path(output)
     if not source.is_file():
@@ -211,7 +212,7 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, boot_id=DEFAULT_BOOT_
     dol_offset = info["dol_offset"]
     image[dol_offset:dol_offset + info["dol_size"]] = info["dol"]
     fst_offset = info["fst_offset"]
-    boot_id_data = make_boot_id(boot_id, title, DEFAULT_MANUFACTURER)
+    boot_id_data = make_boot_id(boot_id, title, DEFAULT_MANUFACTURER, region_flags)
     fst = make_triforce_fst(info["boot_id_offset"], len(boot_id_data))
     image[fst_offset:fst_offset + len(fst)] = fst
     image[info["boot_id_offset"]:info["boot_id_offset"] + len(boot_id_data)] = boot_id_data
@@ -245,7 +246,7 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, boot_id=DEFAULT_BOOT_
         raise ValueError("output DOL/FST pointers did not verify")
     if fst_check != make_triforce_fst(info["boot_id_offset"]):
         raise ValueError("output Triforce FST did not verify")
-    if boot_id_check != make_boot_id(boot_id, title, DEFAULT_MANUFACTURER):
+    if boot_id_check != make_boot_id(boot_id, title, DEFAULT_MANUFACTURER, region_flags):
         raise ValueError("output boot.id metadata did not verify")
     return info
 
@@ -260,6 +261,8 @@ def main():
                         help="six-character Triforce game ID (default: GVSJ8P)")
     parser.add_argument("--boot-id", default=DEFAULT_BOOT_ID,
                         help="four-character Triforce boot ID (default: SBEY)")
+    parser.add_argument("--region-flags", type=lambda x: int(x, 0), default=DEFAULT_REGION_FLAGS,
+                        help="Triforce boot.id region flags (default: 0x0C, export/PAL)")
     parser.add_argument("--title", default=DEFAULT_TITLE,
                         help="disc title, maximum 32 ASCII bytes")
     parser.add_argument("--max-size-mib", type=int, default=512,
@@ -270,7 +273,7 @@ def main():
     try:
         info = package_image(
             args.source_gcm, args.output_bin, args.game_id, args.boot_id, args.title,
-            args.max_size_mib * 1024 * 1024
+            args.max_size_mib * 1024 * 1024, args.region_flags
         )
     except (OSError, ValueError) as exc:
         raise SystemExit("Triforce NetDIMM packaging: FAIL: " + str(exc))
@@ -283,6 +286,8 @@ def main():
     print(f"Output size: {info['output_size']:,} bytes")
     print(f"New disc game ID: {args.game_id}")
     print(f"Triforce boot ID: {args.boot_id}")
+    print(f"Boot.id region flags: 0x{args.region_flags:08X}")
+    print(f"Boot.id manufacturer: {DEFAULT_MANUFACTURER}")
     print(f"Disc title: {args.title}")
     print(f"DOL: offset 0x{info['dol_offset']:X}, size {info['dol_size']:,} bytes, entry 0x{info['dol_entry']:08X}")
     print(f"Apploader: {info['app_size']:,} bytes")
