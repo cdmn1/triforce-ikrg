@@ -180,7 +180,7 @@ def main():
             continue
         at = ordered.index(center)
         lines.append(f"-- around 0x{center:08X} --")
-        for address in ordered[max(0, at - 12):at + 25]:
+        for address in ordered[max(0, at - 12):at + 101]:
             insn = instruction_by_address[address]
             lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     target_hits = [hit for hit in all_hits if any(value in (0x910, 0x2440, 0xFF00, 0x811FFF00) for value in hit[3])]
