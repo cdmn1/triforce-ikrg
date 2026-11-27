@@ -19,7 +19,11 @@ Research and development project to establish a reproducible workflow for buildi
 | Dolphin Triforce metadata recognition | Expected title ID `GEYP6E`; v07 JVS probe running under Triforce baseboard |
 | NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware transfer not tested |
 | Real Triforce boot | Not tested |
-| JVS SI input transport | PASS in Dolphin v07; valid SwitchInput response and checksum |\n| Test / Service controls | PASS in Dolphin v07; Test `0x80`, Service `0x40` |\n| SegaBoot availability in Dolphin | Confirmed indirectly by Test bit being exposed only when `GetTestMenu()` is true |\n| Firmware-read source switch | v08 probe built; Dolphin result pending |\n| Full reset / SegaBoot hand-off | Not yet verified |
+| JVS SI input transport | PASS in Dolphin v07; valid SwitchInput response and checksum |
+| Test / Service controls | PASS in Dolphin v07; Test `0x80`, Service `0x40` |
+| SegaBoot availability in Dolphin | Confirmed indirectly by Test bit being exposed only when `GetTestMenu()` is true |
+| Firmware-read source switch | v08 probe built; Dolphin result pending |
+| Full reset / SegaBoot hand-off | Not yet verified |
 
 The reference analysis workflow downloads the supplied Virtua Striker 2002 archive to temporary GitHub runner storage, extracts it there, and uploads only small text reports. The game image and extracted game data are not committed or uploaded as workflow artifacts.
 
