@@ -41,6 +41,8 @@ def make_boot_id(boot_id=DEFAULT_BOOT_ID, title=DEFAULT_TITLE, manufacturer=DEFA
     data[0:4] = BOOT_ID_MAGIC
     data[0x20:0x24] = MEDIABOARD_TYPE
     struct.pack_into(">HBB", data, 0x28, 2002, 7, 30)
+    data[0x2E] = 1  # Reference image marks this title Type-3 compatible.
+    data[0x2F] = 0x07  # Preserve the adjacent reference byte.
     data[0x30:0x38] = boot_id_bytes + b"    "
     struct.pack_into("<I", data, 0x38, region_flags)
     data[0x60:0x80] = manufacturer_bytes.ljust(32, b"\0")
