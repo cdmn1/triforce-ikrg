@@ -136,3 +136,23 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Safety scope: Dolphin Triforce mode only. Do not test this probe on real Triforce hardware.
 - Emulator result: pending user test.
 - Real Triforce: not tested.
+
+
+## 2026-11-27 — Triforce firmware-read mapping v08: USER-TESTED PASS
+
+- Stage: Direct confirmation of Dolphin's AM-Mediaboard firmware-read source switch.
+- Probe: v08, packaged with explicit replacement DOL. The corrected build used the PowerPC MEM1 alias for the decoder-key words.
+- Dolphin: 2609b, Triforce Baseboard mode.
+- Decoder keys A/B/C: `4756534A 38500000 01000000`.
+- SegaBoot signature RAM before mapping: `10801080` (signature absent).
+- Reset flag: `00000001`.
+- Read at `0x2440`: COMPLETE; DI status `00000010`.
+- Read at `0x0000`: COMPLETE; DI status `00000010`.
+- Returned ID/title: `RELSAB` / `SegaBoot`.
+- Returned GameCube magic: `C2339F3D` (valid).
+- Result: `DIFFERENT IMAGE - FIRMWARE CANDIDATE`.
+- Conclusion: **PASS**. The first read activated Dolphin's firmware map; the next read came from the SegaBoot image, not the game DIMM image.
+- Important distinction: this proves the DI read-source switch, not a CPU reset, apploader execution, SegaBoot menu launch, real hardware boot, or NetDIMM acceptance.
+- Build with corrected MEM1 key aliases: [GitHub Actions run #127](https://github.com/cdmn1/triforce-ikrg/actions/runs/46084065276), CI PASS; artifact ID `15238806423`.
+- Safety: emulator-only. Restart Dolphin after this test to clear the firmware-map state. Do not run on real Triforce hardware.
+- Next: trace the full reset and SegaBoot apploader hand-off. Avoid repeating already-passed JVS or basic DI tests.
