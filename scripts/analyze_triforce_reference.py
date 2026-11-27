@@ -144,7 +144,7 @@ def inspect(path):
             lines.append(f"BOOT.ID MAGIC: {data[:4]!r} ({'PASS' if data[:4] == BOOT_ID_MAGIC else 'FAIL'})")
             lines.append(f"MEDIABOARD TYPE: {data[0x20:0x24]!r}")
             if len(data) >= 0x2C:
-                year, month, day = struct.unpack_from("<HBB", data, 0x28)
+                year, month, day = struct.unpack_from(">HBB", data, 0x28)
                 lines.append(f"BOOT.ID DATE: {year:04d}-{month:02d}-{day:02d}")
             lines.append(f"BOOT.ID DATE RAW: {data[0x28:0x2C].hex().upper()}")
             lines.append(f"REGION FLAGS RAW: {data[0x38:0x3C].hex().upper()}")
