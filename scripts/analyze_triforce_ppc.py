@@ -172,6 +172,17 @@ def main():
                     emitted.add(address)
                     insn = instruction_by_address[address]
                     lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    lines.append("")
+    lines.append("TARGETED CODE WINDOWS:")
+    ordered = sorted(instruction_by_address)
+    for center in (0x801C6A24, 0x801C74B0, 0x801CB7E4, 0x801CB864, 0x80226CD0):
+        if center not in instruction_by_address:
+            continue
+        at = ordered.index(center)
+        lines.append(f"-- around 0x{center:08X} --")
+        for address in ordered[max(0, at - 24):at + 49]:
+            insn = instruction_by_address[address]
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     target_hits = [hit for hit in all_hits if any(value in (0x910, 0x2440, 0xFF00, 0x811FFF00) for value in hit[3])]
     lines.append("")
     lines.append(f"TARGETED RESET/DI IMMEDIATE HITS: {len(target_hits)}")
