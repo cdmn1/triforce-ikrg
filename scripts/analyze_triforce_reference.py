@@ -158,6 +158,10 @@ def inspect(path):
             credit_types = [ascii_field(data[pos:pos + 0x20]) for pos in range(0xE0, min(len(data), 0x1E0), 0x20)]
             credit_types = [name for name in credit_types if name]
             lines.append("CREDIT TYPES: " + (", ".join(credit_types) if credit_types else "(none)"))
+            unknown_ranges = [(0x04, 0x20), (0x24, 0x28), (0x3C, 0x60), (0x120, 0x1E0)]
+            unknown_bytes = [f"0x{pos:X}={data[pos]:02X}" for start, end in unknown_ranges
+                             for pos in range(start, min(end, len(data))) if data[pos]]
+            lines.append("NONZERO UNKNOWN BOOT.ID BYTES: " + (", ".join(unknown_bytes) if unknown_bytes else "(none)"))
         else:
             lines.append("BOOT.ID: NOT FOUND IN FST")
 
