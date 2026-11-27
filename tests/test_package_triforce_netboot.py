@@ -69,6 +69,25 @@ class PackageTest(unittest.TestCase):
             self.assertEqual(data[0x3100:0x3120], b"D" * 0x20)
             self.assertNotIn(b"file.bin", data)
 
+    def test_explicit_replacement_dol_is_embedded(self):
+        with tempfile.TemporaryDirectory() as td:
+            source = Path(td) / "source.iso"
+            replacement = Path(td) / "triforce-hello-v07.dol"
+            output = Path(td) / "hello-v07.bin"
+            make_test_gcm(source)
+            dol = bytearray(0x120)
+            struct.pack_into(">I", dol, 0x00, 0x100)
+            struct.pack_into(">I", dol, 0x48, 0x80003100)
+            struct.pack_into(">I", dol, 0x90, 0x20)
+            struct.pack_into(">I", dol, 0xE0, 0x80003100)
+            dol[0x100:0x120] = b"V07-REPLACEMENT-DOL-MARKER"
+            replacement.write_bytes(dol)
+            info = module.package_image(source, output, dol_override=replacement)
+            packed = output.read_bytes()
+            self.assertEqual(info["dol_source"], "explicit replacement DOL")
+            self.assertEqual(packed[info["dol_offset"] + 0x100:info["dol_offset"] + 0x120],
+                             dol[0x100:0x120])
+
     def test_disc_game_id_and_boot_id_are_independent(self):
         with tempfile.TemporaryDirectory() as td:
             source = Path(td) / "source.iso"
