@@ -14,7 +14,7 @@ from capstone.ppc import PPC_OP_IMM
 
 
 INTERESTING = {
-    0x811F, 0xCC00, 0xFF00, 0x2440, 0x4000, 0x6000, 0x7000,
+    0x811F, 0x8120, 0xCC00, 0xFF00, 0x2440, 0x0910, 0x4000, 0x6000, 0x7000,
     0x400000, 0x600000, 0x700000, 0xA8, 0xAA, 0xAB,
     0xCC006000, 0xCC006004, 0xCC006008, 0xCC00600C,
 }
@@ -89,6 +89,7 @@ def main():
 
     # Look for the known reset-flag address assembled from PPC high/low immediates.
     reset_address_pairs = []
+    di_register_pairs = []
     all_instructions = []
     for index, (file_offset, address, length) in enumerate(sections):
         with args.image.open("rb") as f:
@@ -104,16 +105,24 @@ def main():
             if insn.mnemonic not in ("lis", "addis"):
                 continue
             ops = insn.operands
-            if len(ops) < 2 or ops[-1].type != PPC_OP_IMM or (ops[-1].imm & 0xFFFF) != 0x811F:
+            if len(ops) < 2 or ops[-1].type != PPC_OP_IMM:
                 continue
+            high = ops[-1].imm & 0xFFFF
             dest = ops[0].reg
-            for nxt in decoded[pos + 1:pos + 4]:
+            for nxt in decoded[pos + 1:pos + 5]:
                 nops = nxt.operands
-                if (nxt.mnemonic in ("ori", "addi") and len(nops) >= 3 and
-                        nops[0].reg == dest and nops[1].reg == dest and
-                        nops[2].type == PPC_OP_IMM and (nops[2].imm & 0xFFFF) == 0xFF00):
+                if len(nops) < 3 or nops[-1].type != PPC_OP_IMM:
+                    continue
+                same_reg = nops[0].reg == dest and nops[1].reg == dest
+                low = nops[-1].imm & 0xFFFF
+                if not same_reg:
+                    continue
+                if ((high == 0x811F and nxt.mnemonic in ("ori", "addi") and low == 0xFF00) or
+                    (high == 0x8120 and nxt.mnemonic in ("addi", "subi") and low in (0xFF00, 0x0100))):
                     reset_address_pairs.append((insn.address, nxt.address))
                     break
+                if high == 0xCC00 and nxt.mnemonic in ("ori", "addi") and low in (0x6000, 0x6004, 0x6008, 0x600C, 0x6010):
+                    di_register_pairs.append((insn.address, nxt.address, 0xCC000000 | low))
     lines.append("")
     lines.append(f"TOTAL DECODED INSTRUCTIONS: {decoded_total:,}")
     lines.append(f"BRANCH-AND-LINK CALLS: {len(calls):,}")
@@ -142,6 +151,10 @@ def main():
                     emitted.add(address)
                     insn = instruction_by_address[address]
                     lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    lines.append("")
+    lines.append(f"DI MMIO REGISTER ADDRESS PAIRS: {len(di_register_pairs)}")
+    for high_addr, low_addr, effective in di_register_pairs[:100]:
+        lines.append(f"0x{high_addr:08X} + 0x{low_addr:08X} -> 0x{effective:08X}")
     lines.append("")
     lines.append(f"INTERESTING IMMEDIATE HITS: {len(all_hits)}")
     if all_hits:
