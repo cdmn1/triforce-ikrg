@@ -105,3 +105,19 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - CI status: pending a new workflow run.
 - Emulator: original candidate boot confirmed by user in Dolphin 2609b; compact root-only-FST/custom-ID BIN not yet re-tested.
 - Real Triforce / NetDIMM: not tested. In particular, acceptance of a custom homebrew ID by SegaBoot remains unknown.
+
+
+## 2026-11-27 — Triforce SI/JVS input probe v07
+
+- Stage: Triforce baseboard SI/JVS communication and input validation in Dolphin.
+- Artifact: `triforce-hello-v07`; DOL explicitly supplied to the compact packager with `--dol triforce-hello-v07.dol`.
+- User-confirmed display: `TRIFORCE NETBOOT JVS INPUT PROBE v07`.
+- JVS SetAddress transfer: sent.
+- JVS SwitchInput response: PASS; response framing and checksum accepted.
+- Test input: PASS; pressing mapped Test set system-input bit 7 (`0x80`).
+- Service input: PASS; pressing mapped Service set player 1 switch byte 0 bit 6 (`0x40`).
+- Source interpretation: Dolphin's `Common_IOAdapter::Update` sets Test bit 7 only when `AMMediaboard::GetTestMenu()` is true; `AMMediaboard::Init` sets that flag only after successfully loading `segaboot.gcm`. The observed Test bit therefore confirms SegaBoot firmware is available and loaded by Dolphin for this session. Service alone would not prove this.
+- Conclusion: the emulated baseboard SI/JVS path and both Test/Service mappings are validated. Basic JVS transport testing is complete.
+- Next investigation: determine the exact Triforce reset/firmware-map hand-off sequence. Dolphin's current AMMediaboard source checks reset flag `0x811FFF00 == 1` during an AM-Mediaboard DI command whose decoded offset is `0x2440`; it enables firmware mapping unless the SegaBoot signature at `0x8006BF70` is present. This is a source-level clue, not yet a proven complete reset procedure.
+- Safety: v07 did not write firmware, set the reset flag, or reset the emulated machine.
+- Real Triforce hardware: not tested.
