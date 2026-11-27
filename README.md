@@ -125,3 +125,21 @@ The user-tested v08 probe completed both encrypted Triforce DI reads in Dolphin 
 **Conclusion:** Dolphin's AM-Mediaboard firmware-read source switch is directly confirmed. The first read at `0x2440`, with the reset flag set and SegaBoot signature absent, causes subsequent reads to return the SegaBoot GCM buffer rather than the game DIMM image. This is a stronger result than merely confirming firmware availability or JVS Test input.
 
 The v08 probe did not reset the CPU or execute the SegaBoot apploader. The firmware-map flag remains set until Dolphin is restarted. The next technical milestone is to establish the actual apploader/reset hand-off path; this is still emulator-only research. Real Triforce boot remains untested.
+
+
+## v09: Dolphin-only SegaBoot reset / hand-off experiment
+
+After v08 directly confirmed that the DI read at `0x2440` maps subsequent reads to SegaBoot, v09 moves to the next question: whether a normal PPC cold reset causes Dolphin's boot path to perform that hand-off without the probe manually issuing DI reads.
+
+The v09 DOL displays a warning and waits for the GameCube controller START button. On START it:
+1. Sets `0x811FFF00=1` and flushes the flag to RAM.
+2. Calls libogc `SYS_ResetSystem(SYS_RESTART, 0, TRUE)` to request a cold PPC reset.
+3. Does not issue a DI Write or Execute command and does not write firmware.
+
+**Dolphin 2609b / Triforce Baseboard only. Do not run v09 on real Triforce hardware.** Ensure `segaboot.gcm` and `IPL_TRI.bin` are configured in Dolphin. A successful result should leave the probe screen and enter the SegaBoot boot/menu path. If it returns to the probe or errors, capture the Dolphin log and screen. The reset/handoff result is pending.
+
+Build artifact will be named `triforce-hello-v09`. Package the DOL explicitly with:
+
+```text
+python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v09.bin --dol triforce-hello-v09.dol
+```
