@@ -47,6 +47,8 @@ def make_boot_id(boot_id=DEFAULT_BOOT_ID, title=DEFAULT_TITLE, manufacturer=DEFA
     struct.pack_into("<I", data, 0x38, region_flags)
     data[0x60:0x80] = manufacturer_bytes.ljust(32, b"\0")
     data[0x80:0xA0] = title_bytes.ljust(32, b"\0")
+    data[0xE0:0x100] = b"CREDIT TO START".ljust(32, b"\0")
+    data[0x100:0x120] = b"CREDIT TO CONTINUE".ljust(32, b"\0")
     return bytes(data)
 
 
