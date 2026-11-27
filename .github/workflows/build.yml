@@ -48,21 +48,21 @@ jobs:
       - name: Create versioned artifact
         run: |
           mkdir -p dist
-          cp triforce-hello.dol dist/triforce-hello-v08.dol
+          cp triforce-hello.dol dist/triforce-hello-v09.dol
           cp scripts/package_triforce_netboot.py dist/package_triforce_netboot.py
-          sha256sum dist/triforce-hello-v08.dol dist/package_triforce_netboot.py > dist/SHA256SUMS.txt
+          sha256sum dist/triforce-hello-v09.dol dist/package_triforce_netboot.py > dist/SHA256SUMS.txt
           {
-            echo "Triforce Firmware Map Probe v08 — read-only encrypted DI test"
+            echo "Triforce SegaBoot Reset/Handoff Probe v09 — Dolphin-only reset test"
             echo "Commit: $GITHUB_SHA"
             echo "Container: devkitpro/devkitppc:20261102"
             echo "Artifact files:"
-            echo "  triforce-hello-v07.dol"
+            echo "  triforce-hello-v09.dol"
             echo "  package_triforce_netboot.py"
           } > dist/BUILD-INFO.txt
 
       - name: Upload build and packaging tools
         uses: actions/upload-artifact@v4
         with:
-          name: triforce-hello-v08
+          name: triforce-hello-v09
           path: dist/
           if-no-files-found: error
