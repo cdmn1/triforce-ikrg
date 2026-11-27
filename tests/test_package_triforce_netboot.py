@@ -54,7 +54,7 @@ class PackageTest(unittest.TestCase):
             self.assertEqual(boot_id[0x20:0x24], b"GCAM")
             self.assertEqual(boot_id[0x30:0x38], b"SBEY    ")
             self.assertEqual(struct.unpack_from("<I", boot_id, 0x38)[0], 0x0C)
-            self.assertEqual(boot_id[0x60:0x80].rstrip(b"\\0"), b"SEGA CORPORATION")
+            self.assertEqual(boot_id[0x60:0x80].rstrip(b"\0"), b"SEGA CORPORATION")
             self.assertEqual(boot_id[0x28:0x2C], bytes.fromhex("07D2071E"))
             self.assertEqual(boot_id[0x80:0xA0].rstrip(b"\0"), module.DEFAULT_TITLE.encode())
             self.assertEqual(data[0x3100:0x3120], b"D" * 0x20)
