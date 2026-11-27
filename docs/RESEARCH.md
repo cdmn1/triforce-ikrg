@@ -76,3 +76,16 @@ Pin the container tag in CI rather than using floating latest. Record toolchain 
 **Implementation warning:** libogc's ordinary `DVD_LowRead` writes un-obfuscated DVD command words directly to DI registers. That is not equivalent to the Triforce command encoder found in the reference DOL. Do not use the ordinary libogc DVD read API as a presumed Triforce media-board command until its compatibility is proven.
 
 **Next safe experiment:** reproduce one read-only Triforce DI Read using the reference command encoding, set the reset flag in emulated RAM, trigger offset `0x2440`, then read the emulated firmware header at offset zero. This can test whether Dolphin switches the read source without actually resetting or writing firmware. It is an emulator-only diagnostic, not a real-hardware procedure.
+
+
+## Firmware-map experiment result (2026-11-27)
+
+**USER-TESTED PASS in Dolphin 2609b / Triforce Baseboard mode:**
+- DI decoder keys read by PPC through the MEM1 cached alias: A=`0x4756534A`, B=`0x38500000`, C=`0x01000000`. Physical RAM offsets 0/4/8 must be accessed by PPC at `0x80000000`, `0x80000004`, and `0x80000008`; direct dereferences of addresses 0/4/8 caused a DSI.
+- The probe observed pre-map SegaBoot signature address value `0x10801080`, so the Dolphin guard against remapping while already in SegaBoot did not block the experiment.
+- With reset flag `0x811FFF00=1`, a Triforce DI Read at byte offset `0x2440` completed (status `0x10`).
+- A following DI Read at byte offset `0x0000` completed (status `0x10`) and returned ID `RELSAB`, title `SegaBoot`, and valid GameCube magic `0xC2339F3D`.
+
+**Conclusion:** the Dolphin firmware-read source switch is proven end-to-end at the DI data level. The DI read at `0x2440` activates the map, and the next read at zero returns the SegaBoot GCM header. This does not yet prove that the PPC CPU resets, executes the SegaBoot apploader, or launches the SegaBoot menu. The firmware map is a source-selection state in Dolphin's AM-Mediaboard; it is not itself a CPU branch.
+
+**Next stage:** investigate the full reset/apploader hand-off using Dolphin-only experiments. Preserve the current safety boundary: no test on real Triforce hardware until the reset behavior and hardware-safe command sequence are independently understood.
