@@ -34,7 +34,7 @@ int main(int argc, char **argv)
         VIDEO_WaitVSync();
 
     printf("\x1b[2J");
-    printf("\x1b[2;0HTRIFORCE NETBOOT SE GABOOT RESET PROBE v09");
+    printf("\x1b[2;0HTRIFORCE NETBOOT SEGABOOT RESET PROBE v09");
     printf("\x1b[3;0H--------------------------------------------");
     printf("\x1b[5;0HFULL RESET / FIRMWARE HAND-OFF EXPERIMENT");
     printf("\x1b[7;0HFor Dolphin 2609b Triforce mode ONLY.");
