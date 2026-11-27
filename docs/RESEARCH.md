@@ -89,3 +89,16 @@ Pin the container tag in CI rather than using floating latest. Record toolchain 
 **Conclusion:** the Dolphin firmware-read source switch is proven end-to-end at the DI data level. The DI read at `0x2440` activates the map, and the next read at zero returns the SegaBoot GCM header. This does not yet prove that the PPC CPU resets, executes the SegaBoot apploader, or launches the SegaBoot menu. The firmware map is a source-selection state in Dolphin's AM-Mediaboard; it is not itself a CPU branch.
 
 **Next stage:** investigate the full reset/apploader hand-off using Dolphin-only experiments. Preserve the current safety boundary: no test on real Triforce hardware until the reset behavior and hardware-safe command sequence are independently understood.
+
+
+## Full reset / SegaBoot hand-off experiment (v09)
+
+The v08 DI-level mapping test passed: a read at `0x2440` followed by a read at zero returned a valid SegaBoot GCM header. This confirms firmware data selection but does not itself reset the PPC or run the firmware apploader.
+
+The next Dolphin-only experiment is v09:
+- Set the reset hand-off flag `0x811FFF00=1` and flush it.
+- Wait for a GameCube controller START press.
+- Call libogc `SYS_ResetSystem(SYS_RESTART, 0, TRUE)` to request a cold PPC reset.
+- Let Dolphin's normal Triforce boot path perform any subsequent DI read at `0x2440`.
+
+This is deliberately not a real-hardware test. It does not issue media-board Write/Execute commands or write firmware. The outcome will determine whether Dolphin preserves the reset flag and performs the SegaBoot hand-off across a PPC reset.
