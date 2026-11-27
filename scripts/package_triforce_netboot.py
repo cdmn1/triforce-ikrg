@@ -292,6 +292,8 @@ def main():
     print(f"Triforce boot ID: {args.boot_id}")
     print(f"Boot.id region flags: 0x{args.region_flags:08X}")
     print(f"Boot.id manufacturer: {DEFAULT_MANUFACTURER}")
+    print("Boot.id Type-3 compatibility: 1")
+    print("Boot.id credit types: CREDIT TO START; CREDIT TO CONTINUE")
     print(f"Disc title: {args.title}")
     print(f"DOL: offset 0x{info['dol_offset']:X}, size {info['dol_size']:,} bytes, entry 0x{info['dol_entry']:08X}")
     print(f"Apploader: {info['app_size']:,} bytes")
