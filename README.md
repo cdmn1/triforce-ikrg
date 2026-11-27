@@ -9,7 +9,7 @@ Research and development project to establish a reproducible workflow for buildi
 | Stage | Status |
 |---|---|
 | devkitPPC in GitHub Actions | Passed |
-| Versioned diagnostics | v07 JVS input probe; v08 firmware-map read probe built |
+| Versioned diagnostics | v07 JVS input probe; v08 firmware-map read probe passed in Dolphin |
 | DOL structural validation | Passed (latest build workflow) |
 | Ikaruga USA source-image inspection | Passed in earlier CI run |
 | Candidate GCM | User-confirmed boot in Dolphin 2609b, Triforce Baseboard enabled |
@@ -22,8 +22,8 @@ Research and development project to establish a reproducible workflow for buildi
 | JVS SI input transport | PASS in Dolphin v07; valid SwitchInput response and checksum |
 | Test / Service controls | PASS in Dolphin v07; Test `0x80`, Service `0x40` |
 | SegaBoot availability in Dolphin | Confirmed indirectly by Test bit being exposed only when `GetTestMenu()` is true |
-| Firmware-read source switch | v08 probe built; Dolphin result pending |
-| Full reset / SegaBoot hand-off | Not yet verified |
+| Firmware-read source switch | PASS in Dolphin v08; offset 0x0000 returned valid SegaBoot image header |
+| Full reset / SegaBoot hand-off | Not yet verified; firmware source mapping is confirmed, CPU hand-off is next |
 
 The reference analysis workflow downloads the supplied Virtua Striker 2002 archive to temporary GitHub runner storage, extracts it there, and uploads only small text reports. The game image and extracted game data are not committed or uploaded as workflow artifacts.
 
@@ -51,7 +51,7 @@ GitHub Actions uses the official devkitPro devkitPPC container. No local toolcha
 
 To package a versioned DOL, explicitly pass that DOL to the packaging script. The source GCM supplies the boot header, BI2 and apploader; the `--dol` argument supplies the executable placed in the output BIN. Without `--dol`, the script falls back to the DOL embedded in the source GCM.
 
-For the v08 probe, put `candidate-homebrew.iso`, `triforce-hello-v08.dol` and `package_triforce_netboot.py` in the same folder, then run:
+For the v08 firmware-map probe, use the artifact from [build run #127](https://github.com/cdmn1/triforce-ikrg/actions/runs/46084065276), which includes the corrected MEM1 key-address reads. Put `candidate-homebrew.iso`, `triforce-hello-v08.dol` and `package_triforce_netboot.py` in the same folder, then run:
 
 ```text
 python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v08.bin --dol triforce-hello-v08.dol
@@ -109,3 +109,19 @@ input read will establish that the emulated SI/JVS input path is working; it wil
 itself launch SegaBoot or prove real Triforce hardware compatibility.
 
 Build artifact: `triforce-hello-v07`. Use the explicit `--dol triforce-hello-v07.dol` argument when packaging; otherwise the older DOL embedded in the candidate GCM will be reused.
+
+
+## v08: SegaBoot firmware-read mapping confirmed
+
+The user-tested v08 probe completed both encrypted Triforce DI reads in Dolphin 2609b with Triforce Baseboard enabled:
+
+- Decoder keys read through the PowerPC MEM1 alias: A `4756534A`, B `38500000`, C `01000000`.
+- SegaBoot signature address before mapping: `10801080` (not the SegaBoot signature).
+- Reset flag: `0x00000001`.
+- DI read at byte offset `0x2440`: COMPLETE, status `0x00000010`.
+- DI read at byte offset `0x0000`: COMPLETE, status `0x00000010`.
+- Returned ID: `RELSAB`; title: `SegaBoot`; GameCube magic: `0xC2339F3D` (valid).
+
+**Conclusion:** Dolphin's AM-Mediaboard firmware-read source switch is directly confirmed. The first read at `0x2440`, with the reset flag set and SegaBoot signature absent, causes subsequent reads to return the SegaBoot GCM buffer rather than the game DIMM image. This is a stronger result than merely confirming firmware availability or JVS Test input.
+
+The v08 probe did not reset the CPU or execute the SegaBoot apploader. The firmware-map flag remains set until Dolphin is restarted. The next technical milestone is to establish the actual apploader/reset hand-off path; this is still emulator-only research. Real Triforce boot remains untested.
