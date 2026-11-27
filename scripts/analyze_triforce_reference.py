@@ -66,6 +66,8 @@ def inspect(path):
             lines.append(f"APPLOADER DATE: {app_date}")
             lines.append(f"APPLOADER ENTRY: 0x{app_entry:08X}")
             lines.append(f"APPLOADER CODE/TRAILER/TOTAL: {app_size:,} / {app_trailer:,} / {app_total:,} bytes")
+            if 0x2440 + app_total <= size:
+                lines.append(f"APPLOADER SHA256: {sha256_range(path, 0x2440, app_total)}")
             lines.append(f"APPLOADER RANGE CHECK: {'PASS' if 0x2440 + app_total <= size else 'FAIL'}")
         else:
             lines.append("APPLOADER: missing")
@@ -88,6 +90,8 @@ def inspect(path):
             lines.append(f"DOL EXTENT: {dol_end:,} bytes")
             if valid:
                 lines.append(f"DOL SHA256: {sha256_range(path, dol, dol_end)}")
+                lines.append("DOL SECTION MAP: " + "; ".join(
+                    f"file+0x{o:X}->0x{a:08X} ({n:,} bytes)" for o, a, n in sections))
         else:
             lines.append("DOL: invalid offset")
 
@@ -139,6 +143,9 @@ def inspect(path):
             lines.append(f"BOOT.ID: FOUND at 0x{off:X}, FST length {length:,}")
             lines.append(f"BOOT.ID MAGIC: {data[:4]!r} ({'PASS' if data[:4] == BOOT_ID_MAGIC else 'FAIL'})")
             lines.append(f"MEDIABOARD TYPE: {data[0x20:0x24]!r}")
+            if len(data) >= 0x2C:
+                year, month, day = struct.unpack_from("<HBB", data, 0x28)
+                lines.append(f"BOOT.ID DATE: {year:04d}-{month:02d}-{day:02d}")
             lines.append(f"BOOT ID: {data[0x30:0x34].decode('ascii', 'replace')}")
             lines.append(f"REGION/FLAGS: 0x{struct.unpack_from('<I', data, 0x38)[0]:08X}" if len(data) >= 0x3C else "REGION/FLAGS: truncated")
             lines.append(f"MANUFACTURER: {ascii_field(data[0x60:0x80])}")
