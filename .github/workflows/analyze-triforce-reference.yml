@@ -1,0 +1,66 @@
+name: Analyze Virtua Striker 2002 Triforce Reference
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/analyze_triforce_reference.py"
+      - ".github/workflows/analyze-triforce-reference.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-reference:
+    name: Inspect reference image (dump stays private to runner)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out analysis script
+        uses: actions/checkout@v4
+
+      - name: Install archive extractor
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full
+
+      - name: Download reference archive from Dropbox
+        env:
+          DROPBOX_URL: "https://www.dropbox.com/scl/fi/5mg9tk51s3k6jp2u82wzf/tf-virtuastriker2002_SBEY.7z?rlkey=k6r21a1n3uu52jk0baokoghhq&st=n8c3n3bq&dl=1"
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/triforce-reference"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "$DROPBOX_URL" \
+            --output "$RUNNER_TEMP/triforce-reference/reference.7z"
+          test -s "$RUNNER_TEMP/triforce-reference/reference.7z"
+          echo "Downloaded archive size: $(stat -c '%s' "$RUNNER_TEMP/triforce-reference/reference.7z") bytes"
+          7z t "$RUNNER_TEMP/triforce-reference/reference.7z"
+
+      - name: Extract reference image in temporary runner storage
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/triforce-reference/extracted"
+          7z x "$RUNNER_TEMP/triforce-reference/reference.7z" \
+            -o"$RUNNER_TEMP/triforce-reference/extracted" -y
+          echo "Extracted file inventory (names and sizes only):"
+          find "$RUNNER_TEMP/triforce-reference/extracted" -type f \
+            -printf '%P | %s bytes\n' | sort
+
+      - name: Analyze boot header, apploader, DOL, FST and boot.id
+        run: |
+          set -euo pipefail
+          python3 scripts/analyze_triforce_reference.py \
+            "$RUNNER_TEMP/triforce-reference/extracted" \
+            --output "$RUNNER_TEMP/triforce-reference/reference-analysis.txt"
+          mkdir -p dist
+          cp "$RUNNER_TEMP/triforce-reference/reference-analysis.txt" dist/
+          sha256sum dist/reference-analysis.txt > dist/SHA256SUMS.txt
+
+      - name: Upload metadata report only
+        uses: actions/upload-artifact@v4
+        with:
+          name: triforce-virtuastriker-reference-analysis
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
