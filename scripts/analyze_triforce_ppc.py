@@ -14,8 +14,8 @@ from capstone.ppc import PPC_OP_IMM
 
 
 INTERESTING = {
-    0x811F, 0xFF00, 0x2440, 0x4000, 0x6000, 0x7000,
-    0x400000, 0x600000, 0x700000, 0xA8, 0xAA, 0xAB, 0x12,
+    0x811F, 0xCC00, 0xFF00, 0x2440, 0x4000, 0x6000, 0x7000,
+    0x400000, 0x600000, 0x700000, 0xA8, 0xAA, 0xAB,
     0xCC006000, 0xCC006004, 0xCC006008, 0xCC00600C,
 }
 STRING_TERMS = (
@@ -68,25 +68,60 @@ def main():
         with args.image.open("rb") as f:
             f.seek(dol_offset + file_offset)
             code = f.read(length)
-        decoded = list(md.disasm(code, address))
+        decoded = []
+        for word_offset in range(0, len(code) - 3, 4):
+            one = next(md.disasm(code[word_offset:word_offset + 4], address + word_offset), None)
+            if one is not None:
+                decoded.append(one)
         decoded_total += len(decoded)
         lines.append(
             f"SECTION {index}: file+0x{file_offset:X}, address 0x{address:08X}, "
-            f"{length:,} bytes, {len(decoded):,} decoded instructions"
+            f"{length:,} bytes, {len(decoded):,} word-aligned decode candidates"
         )
         for insn in decoded:
             immediates = [op.imm & 0xFFFFFFFF for op in insn.operands if op.type == PPC_OP_IMM]
-            matched = [imm for imm in immediates if imm in INTERESTING]
+            matched = [imm for imm in immediates
+                       if imm in INTERESTING or (imm & 0xFFFF) in INTERESTING]
             if matched:
                 all_hits.append((insn.address, insn.mnemonic, insn.op_str, matched))
             if insn.mnemonic in ("bl", "bla"):
                 calls.append((insn.address, insn.op_str))
+
+    # Look for the known reset-flag address assembled from PPC high/low immediates.
+    reset_address_pairs = []
+    for index, (file_offset, address, length) in enumerate(sections):
+        with args.image.open("rb") as f:
+            f.seek(dol_offset + file_offset)
+            code = f.read(length)
+        decoded = []
+        for word_offset in range(0, len(code) - 3, 4):
+            one = next(md.disasm(code[word_offset:word_offset + 4], address + word_offset), None)
+            if one is not None:
+                decoded.append(one)
+        for pos, insn in enumerate(decoded):
+            if insn.mnemonic not in ("lis", "addis"):
+                continue
+            ops = insn.operands
+            if len(ops) < 2 or ops[-1].type != PPC_OP_IMM or (ops[-1].imm & 0xFFFF) != 0x811F:
+                continue
+            dest = ops[0].reg
+            for nxt in decoded[pos + 1:pos + 4]:
+                nops = nxt.operands
+                if (nxt.mnemonic in ("ori", "addi") and len(nops) >= 3 and
+                        nops[0].reg == dest and nops[1].reg == dest and
+                        nops[2].type == PPC_OP_IMM and (nops[2].imm & 0xFFFF) == 0xFF00):
+                    reset_address_pairs.append((insn.address, nxt.address))
+                    break
     lines.append("")
     lines.append(f"TOTAL DECODED INSTRUCTIONS: {decoded_total:,}")
     lines.append(f"BRANCH-AND-LINK CALLS: {len(calls):,}")
     lines.append("CALL TARGET SAMPLE: " + (
         "; ".join(f"0x{addr:08X} {op}" for addr, op in calls[:80]) or "(none)"
     ))
+    lines.append("")
+    lines.append(f"RESET FLAG 0x811FFF00 HIGH/LOW PAIRS: {len(reset_address_pairs)}")
+    for high_addr, low_addr in reset_address_pairs[:40]:
+        lines.append(f"0x{high_addr:08X} + 0x{low_addr:08X} -> 0x811FFF00 candidate")
     lines.append("")
     lines.append(f"INTERESTING IMMEDIATE HITS: {len(all_hits)}")
     if all_hits:
