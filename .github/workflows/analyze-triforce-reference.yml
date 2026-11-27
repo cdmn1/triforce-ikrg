@@ -60,10 +60,10 @@ jobs:
             "$RUNNER_TEMP/triforce-reference/extracted" \
             --output "$RUNNER_TEMP/triforce-reference/reference-analysis.txt"
           mkdir -p dist
-          IMAGE=$(find "$RUNNER_TEMP/triforce-reference/extracted" -type f \\
-            \\( -iname "*.bin" -o -iname "*.iso" -o -iname "*.gcm" \\) -print -quit)
+          IMAGE=$(find "$RUNNER_TEMP/triforce-reference/extracted" -type f \
+            \( -iname "*.bin" -o -iname "*.iso" -o -iname "*.gcm" \) -print -quit)
           test -n "$IMAGE"
-          python3 scripts/analyze_triforce_ppc.py "$IMAGE" \\
+          python3 scripts/analyze_triforce_ppc.py "$IMAGE" \
             --output "$RUNNER_TEMP/triforce-reference/powerpc-analysis.txt"
           cp "$RUNNER_TEMP/triforce-reference/reference-analysis.txt" dist/
           cp "$RUNNER_TEMP/triforce-reference/powerpc-analysis.txt" dist/
