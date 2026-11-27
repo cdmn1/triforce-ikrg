@@ -49,15 +49,18 @@ jobs:
         run: |
           mkdir -p dist
           cp triforce-hello.dol dist/triforce-hello-v01.dol
-          sha256sum dist/triforce-hello-v01.dol > dist/SHA256SUMS.txt
+          cp scripts/package_triforce_netboot.py dist/package_triforce_netboot.py
+          sha256sum dist/triforce-hello-v01.dol dist/package_triforce_netboot.py > dist/SHA256SUMS.txt
           {
             echo "Triforce Hello World v01"
             echo "Commit: $GITHUB_SHA"
             echo "Container: devkitpro/devkitppc:20261102"
-            echo "Artifact: triforce-hello-v01.dol"
+            echo "Artifact files:"
+            echo "  triforce-hello-v01.dol"
+            echo "  package_triforce_netboot.py"
           } > dist/BUILD-INFO.txt
 
-      - name: Upload DOL artifact
+      - name: Upload build and packaging tools
         uses: actions/upload-artifact@v4
         with:
           name: triforce-hello-v01
