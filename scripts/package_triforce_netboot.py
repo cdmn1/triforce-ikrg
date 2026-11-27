@@ -320,6 +320,7 @@ def main():
     print("Boot.id credit types: CREDIT TO START; CREDIT TO CONTINUE")
     print(f"Disc title: {args.title}")
     print(f"DOL: offset 0x{info['dol_offset']:X}, size {info['dol_size']:,} bytes, entry 0x{info['dol_entry']:08X}")
+    print(f"DOL source: {info['dol_source']}")
     print(f"Apploader: {info['app_size']:,} bytes")
     print(f"Original FST files removed: {info['source_fst_files']}")
     print(f"New FST: offset 0x{info['fst_offset']:X}, root + boot.id ({info['fst_size']} bytes)")
