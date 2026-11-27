@@ -164,6 +164,6 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Source: v09 waits for GameCube controller START, sets `0x811FFF00=1`, flushes it, then calls `SYS_ResetSystem(SYS_RESTART, 0, TRUE)`.
 - The probe does not manually issue DI reads, DI Write/Execute commands, or firmware writes. The aim is to let Dolphin's normal Triforce boot path perform the offset-`0x2440` read after reset.
 - Safety: Dolphin 2609b Triforce Baseboard mode ONLY. Do not run on real Triforce hardware.
-- Build: pending CI.
-- Emulator reset/handoff result: pending.
+- Build: CI PASS, [workflow run #133](https://github.com/cdmn1/triforce-ikrg/actions/runs/46084690570); artifact `triforce-hello-v09`, ID `15237679896`.
+- Emulator reset/handoff result: pending user test.
 - Real Triforce: not tested.
