@@ -39,12 +39,18 @@ def make_boot_id(boot_id=DEFAULT_BOOT_ID, title=DEFAULT_TITLE, manufacturer=DEFA
         raise ValueError("boot.id title and manufacturer must be at most 32 ASCII bytes")
     data = bytearray(BOOT_ID_SIZE)
     data[0:4] = BOOT_ID_MAGIC
+    # Preserve the non-zero undocumented bytes found in the known-good SBEY reference.
+    data[0x06:0x08] = bytes.fromhex("01E0")
+    data[0x0B] = 0x01
+    data[0x0F] = 0x01
     data[0x20:0x24] = MEDIABOARD_TYPE
+    data[0x26:0x28] = bytes.fromhex("01C0")
     struct.pack_into(">HBB", data, 0x28, 2002, 7, 30)
     data[0x2E] = 1  # Reference image marks this title Type-3 compatible.
     data[0x2F] = 0x07  # Preserve the adjacent reference byte.
     data[0x30:0x38] = boot_id_bytes + b"    "
     struct.pack_into("<I", data, 0x38, region_flags)
+    data[0x50:0x52] = bytes.fromhex("0102")
     data[0x60:0x80] = manufacturer_bytes.ljust(32, b"\0")
     data[0x80:0xA0] = title_bytes.ljust(32, b"\0")
     data[0xE0:0x100] = b"CREDIT TO START".ljust(32, b"\0")
