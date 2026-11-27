@@ -2,29 +2,62 @@
 
 Research and development project to establish a reproducible workflow for building, packaging, validating and booting custom software on Sega/Namco/Nintendo Triforce arcade hardware.
 
-**Current milestone:** the Hello World candidate boots in Dolphin 2609b with Triforce Baseboard enabled. An experimental raw `.bin` NetDIMM payload packager is now implemented; its output-size guard and custom homebrew header still need validation against the user's image and real Segaboot.
+**Current milestone:** the Hello World candidate DOL boots in Dolphin 2609b with Triforce Baseboard enabled. A known-good Virtua Striker 2002 raw image has now been structurally analyzed in GitHub Actions. That comparison corrected the experimental `boot.id` metadata used by the compact NetDIMM packager. The corrected v04 package still needs a fresh Dolphin test; real Triforce hardware has not been tested.
 
 ## Status
 
 | Stage | Status |
 |---|---|
-| devkitPPC in GitHub Actions | Passed (run #6) |
+| devkitPPC in GitHub Actions | Passed |
 | Minimal framebuffer Hello World | Compiled into DOL |
-| DOL structural validation | Passed (run #6) |
-| GameCube source-image inspection | Passed for Ikaruga USA (run [45897021932](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897021932)) |
-| System-area component extraction | Passed (run [45897618626](https://github.com/cdmn1/triforce-ikrg/actions/runs/45897618626)); BI2 field decoding added, CI rerun pending |
-| GameCube disc-image packaging | Candidate GCM boots in Dolphin 2609b; packaged BIN retest pending |
-| NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware not tested |
-| Triforce NetDIMM BIN format | Raw image transfer is supported by legacy tool evidence; custom homebrew header/SegaBoot acceptance not verified |
-| Emulator boot | Passed in Dolphin 2609b with Triforce Baseboard enabled (user-confirmed 2026-11-26) |
+| DOL structural validation | Passed (latest build workflow) |
+| Ikaruga USA source-image inspection | Passed in earlier CI run |
+| Candidate GCM | User-confirmed boot in Dolphin 2609b, Triforce Baseboard enabled |
+| Known-good Virtua Striker 2002 reference | Passed structural checks in [reference analysis run #7](https://github.com/cdmn1/triforce-ikrg/actions/runs/46030462650) |
+| Reference PowerPC static analysis | Completed; report contains section map, immediate hits and selected strings only |
+| Compact raw BIN packager | Unit tests passed; defaults now mirror reference Triforce boot metadata |
+| Dolphin recognition with corrected metadata | Expected title ID is `GEYP6E`; v04 retest pending |
+| NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware transfer not tested |
 | Real Triforce boot | Not tested |
-| JVS input | Not implemented |
+| JVS input / game test menu | Not implemented in Hello World |
 
-See docs/ for research, build instructions, packaging investigation and test logs.
+The reference analysis workflow downloads the supplied Virtua Striker 2002 archive to temporary GitHub runner storage, extracts it there, and uploads only small text reports. The game image and extracted game data are not committed or uploaded as workflow artifacts.
+
+## Reference-matched boot metadata
+
+The supplied known-good image confirms these separate identifiers:
+
+- Disc header ID: `GVSJ8P`
+- `boot.id` game ID field: `SBEY`
+- Media-board type: `GCAM`
+- Region flags: `0x0C` (Export / PAL)
+- Manufacturer: `SEGA CORPORATION`
+
+Dolphin constructs its six-character Triforce title ID from the `boot.id` fields, not from the six-character disc header. For the reference metadata, the expected constructed ID is `GEYP6E`:
+
+- `SBEY` contributes `EY`
+- region flag `0x0C` contributes `P`
+- `SEGA CORPORATION` contributes maker code `6E`
+
+The corrected packager uses these reference values by default. The disc header remains `GVSJ8P`; do not replace it with `GEYP6E`.
 
 ## Build
 
-GitHub Actions uses the official devkitPro devkitPPC container. No local toolchain installation is required. The first versioned artifact is triforce-hello-v01.dol.
+GitHub Actions uses the official devkitPro devkitPPC container. No local toolchain installation is required. The latest artifact is `triforce-hello-v04`, containing the DOL, updated packaging script, build information and checksums.
+
+To package the already-tested candidate GCM locally, use the v04 packaging script and give it a new output name, for example:
+
+```text
+python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v04.bin
+```
+
+The script's default metadata now matches the reference values above. It still enforces the 512 MiB DIMM size limit.
+
+## Test/Service input caveat
+
+The Virtua Striker 2002 DOL contains its own test-menu implementation and strings such as `VIRTUA STRIKER 2002 TEST MENU`, `SELECT WITH SERVICE BUTTON`, and `PRESS TEST BUTTON TO EXIT`. It also contains explicit JVS I/O-board error messages.
+
+The Hello World DOL does not poll JVS inputs or implement a game test menu. Therefore, pressing Test or Service while Hello World is running is not a valid test of whether the Triforce boot environment or SegaBoot was recognized. The known-good game's menu is game code, not a generic menu that every DOL automatically inherits.
 
 ## Principles
 
@@ -36,7 +69,9 @@ GitHub Actions uses the official devkitPro devkitPPC container. No local toolcha
 
 ## Important caveat
 
-A DOL is an executable, not a complete disc image. The current Hello World packager takes the tested candidate GCM, validates its FST and file extents, then builds a compact image containing the boot header, BI2, apploader and DOL with an empty root-only FST (the program has no disc/file reads). It aligns the result to 32 bytes, enforces a 512 MiB DIMM limit, and writes a six-character homebrew ID/title into the 0x40-byte disc header. This is an experimental raw payload, not yet proven to pass real SegaBoot. Do not rename a DOL to BIN and assume it is bootable.
+A DOL is an executable, not a complete disc image. The current Hello World packager takes the tested candidate GCM, validates its FST and file extents, then builds a compact image containing the boot header, BI2, apploader and DOL with an empty root-only FST (the program has no disc/file reads). It aligns the result to 32 bytes, writes a `boot.id` entry and enforces a 512 MiB DIMM limit. This remains an experimental raw payload: passing Dolphin tests does not prove real SegaBoot or real Triforce acceptance.
+
+See `docs/` for research, build instructions, packaging investigation and test logs.
 
 ## References
 
