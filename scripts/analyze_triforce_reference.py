@@ -149,9 +149,15 @@ def inspect(path):
             lines.append(f"BOOT.ID DATE RAW: {data[0x28:0x2C].hex().upper()}")
             lines.append(f"REGION FLAGS RAW: {data[0x38:0x3C].hex().upper()}")
             lines.append(f"BOOT ID: {data[0x30:0x34].decode('ascii', 'replace')}")
+            lines.append(f"VIDEO/TYPE3 BYTES: {data[0x2C:0x30].hex().upper()}")
             lines.append(f"REGION/FLAGS: 0x{struct.unpack_from('<I', data, 0x38)[0]:08X}" if len(data) >= 0x3C else "REGION/FLAGS: truncated")
             lines.append(f"MANUFACTURER: {ascii_field(data[0x60:0x80])}")
             lines.append(f"BOOT TITLE: {ascii_field(data[0x80:0xA0])}")
+            lines.append(f"GAME EXECUTABLE: {ascii_field(data[0xA0:0xC0])}")
+            lines.append(f"TEST EXECUTABLE: {ascii_field(data[0xC0:0xE0])}")
+            credit_types = [ascii_field(data[pos:pos + 0x20]) for pos in range(0xE0, min(len(data), 0x1E0), 0x20)]
+            credit_types = [name for name in credit_types if name]
+            lines.append("CREDIT TYPES: " + (", ".join(credit_types) if credit_types else "(none)"))
         else:
             lines.append("BOOT.ID: NOT FOUND IN FST")
 
