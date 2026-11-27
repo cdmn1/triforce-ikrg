@@ -43,15 +43,17 @@ The corrected packager uses these reference values by default. The disc header r
 
 ## Build
 
-GitHub Actions uses the official devkitPro devkitPPC container. No local toolchain installation is required. The latest artifact is `triforce-hello-v04`, containing the DOL, updated packaging script, build information and checksums.
+GitHub Actions uses the official devkitPro devkitPPC container. No local toolchain installation is required. The latest build artifact contains the versioned DOL, packaging script, build information and checksums.
 
-To package the already-tested candidate GCM locally, use the v06 packaging script and give it a new output name, for example:
+To package a versioned DOL, explicitly pass that DOL to the packaging script. The source GCM supplies the boot header, BI2 and apploader; the `--dol` argument supplies the executable placed in the output BIN. Without `--dol`, the script falls back to the DOL embedded in the source GCM.
+
+For the v07 probe, put `candidate-homebrew.iso`, `triforce-hello-v07.dol` and `package_triforce_netboot.py` in the same folder, then run:
 
 ```text
-python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v06.bin
+python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v07.bin --dol triforce-hello-v07.dol
 ```
 
-The script's default metadata now matches the reference values above. It still enforces the 512 MiB DIMM size limit.
+The packager validates the replacement DOL's sections and entry point, recalculates the FST position, and enforces the 512 MiB DIMM size limit.
 
 ## Test/Service input caveat
 
@@ -102,5 +104,4 @@ The probe does not call OSResetSystem, change the DIMM, or write firmware. A suc
 input read will establish that the emulated SI/JVS input path is working; it will not by
 itself launch SegaBoot or prove real Triforce hardware compatibility.
 
-Build artifact: `triforce-hello-v07`. Package the DOL into a compact image using the
-same v06 `package_triforce_netboot.py` tool and your existing `candidate-homebrew.iso`.
+Build artifact: `triforce-hello-v07`. Use the explicit `--dol triforce-hello-v07.dol` argument when packaging; otherwise the older DOL embedded in the candidate GCM will be reused.
