@@ -56,3 +56,23 @@ Pin the container tag in CI rather than using floating latest. Record toolchain 
 6. Can a legally obtained clean GameCube image be used as a packaging base, or are Triforce-specific structures needed?
 7. Which JVS commands and SI transfer framing are required for coin, service and player inputs?
 8. Which memory configurations are safe for homebrew on each board type?
+
+
+## Triforce media-board reset and DI command research (2026-11-27)
+
+**Confirmed in Dolphin source:**
+- Triforce DI command words 0–2 are XOR-decoded with three evolving keys before the command byte and offset are interpreted.
+- The decoded command byte is the low byte of command word 0. The decoded media-board offset is command word 1 multiplied by four.
+- When a decoded DI command uses offset `0x2440`, Dolphin checks RAM address `0x811FFF00`. If it contains 1 and the SegaBoot signature at `0x8006BF70` is absent, Dolphin enables its firmware-read path.
+- While enabled, subsequent media-board Read commands are served from the 2 MiB `segaboot.gcm` firmware buffer instead of the game DIMM image. An Inquiry command clears the firmware-read flag.
+- This is a read-source switch in Dolphin's AM-Mediaboard handler; the flag check itself does not directly branch the PPC CPU into SegaBoot.
+
+**Confirmed in the known-good Virtua Striker 2002 DOL (static analysis):**
+- A command encoder at approximately `0x801C744C` generates an odd 16-bit seed, combines it with the command ID, XORs the three command words with the current keys, multiplies the keys by the seed, and writes the encoded words to DI registers `0xCC006008`, `0xCC00600C` and `0xCC006010`.
+- Adjacent media-board routines write the DMA address, DMA length and DI control registers. A write command path uses decoded command `0xAA` and control value 7.
+- A boot/apploader-loading routine calls a helper with offset `0x2440`, first for a 0x20-byte header and then for the apploader body. This is the standard GameCube apploader offset and is a plausible point where a reset/reboot path encounters the firmware-read switch.
+- No direct PPC instruction pair constructing `0x811FFF00` was found in the scanned game DOL. The flag write may belong to a system OS routine or be constructed indirectly; this is not yet resolved.
+
+**Implementation warning:** libogc's ordinary `DVD_LowRead` writes un-obfuscated DVD command words directly to DI registers. That is not equivalent to the Triforce command encoder found in the reference DOL. Do not use the ordinary libogc DVD read API as a presumed Triforce media-board command until its compatibility is proven.
+
+**Next safe experiment:** reproduce one read-only Triforce DI Read using the reference command encoding, set the reset flag in emulated RAM, trigger offset `0x2440`, then read the emulated firmware header at offset zero. This can test whether Dolphin switches the read source without actually resetting or writing firmware. It is an emulator-only diagnostic, not a real-hardware procedure.
