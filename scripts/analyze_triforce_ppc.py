@@ -155,6 +155,29 @@ def main():
     lines.append(f"DI MMIO REGISTER ADDRESS PAIRS: {len(di_register_pairs)}")
     for high_addr, low_addr, effective in di_register_pairs[:100]:
         lines.append(f"0x{high_addr:08X} + 0x{low_addr:08X} -> 0x{effective:08X}")
+    if di_register_pairs:
+        lines.append("")
+        lines.append("DI MMIO ACCESS CODE CONTEXT (±10 instructions):")
+        emitted = set()
+        ordered = sorted(instruction_by_address)
+        for high_addr, low_addr, effective in di_register_pairs[:30]:
+            for center in (high_addr, low_addr):
+                try:
+                    at = ordered.index(center)
+                except ValueError:
+                    continue
+                for address in ordered[max(0, at - 10):at + 11]:
+                    if address in emitted:
+                        continue
+                    emitted.add(address)
+                    insn = instruction_by_address[address]
+                    lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    target_hits = [hit for hit in all_hits if any(value in (0x910, 0x2440, 0xFF00, 0x811FFF00) for value in hit[3])]
+    lines.append("")
+    lines.append(f"TARGETED RESET/DI IMMEDIATE HITS: {len(target_hits)}")
+    for addr, mnemonic, operands, matched in target_hits[:200]:
+        values = ",".join(f"0x{x:X}" for x in matched)
+        lines.append(f"0x{addr:08X}: {mnemonic} {operands} [imm {values}]")
     lines.append("")
     lines.append(f"INTERESTING IMMEDIATE HITS: {len(all_hits)}")
     if all_hits:
