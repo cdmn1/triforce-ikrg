@@ -22,21 +22,24 @@ BOOT_ID_SIZE = 480
 BOOT_ID_MAGIC = b"BTID"
 MEDIABOARD_TYPE = b"GCAM"
 DEFAULT_MAX_SIZE = 512 * 1024 * 1024
-DEFAULT_GAME_ID = "THWJ01"
+DEFAULT_GAME_ID = "GEYP6E"
 DEFAULT_TITLE = "TRIFORCE NETBOOT HELLO WORLD"
 DEFAULT_MANUFACTURER = "TRIFORCE HOMEBREW"
 
 
-def make_boot_id(title=DEFAULT_TITLE, manufacturer=DEFAULT_MANUFACTURER):
+def make_boot_id(game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE, manufacturer=DEFAULT_MANUFACTURER):
+    game_id_bytes = game_id.encode("ascii")
     title_bytes = title.encode("ascii")
     manufacturer_bytes = manufacturer.encode("ascii")
+    if len(game_id_bytes) != 6 or any(c < 0x20 or c > 0x7E for c in game_id_bytes):
+        raise ValueError("game ID must be exactly six printable ASCII characters")
     if len(title_bytes) > 32 or len(manufacturer_bytes) > 32:
         raise ValueError("boot.id title and manufacturer must be at most 32 ASCII bytes")
     data = bytearray(BOOT_ID_SIZE)
     data[0:4] = BOOT_ID_MAGIC
     data[0x20:0x24] = MEDIABOARD_TYPE
     struct.pack_into("<HBB", data, 0x28, 2026, 11, 26)
-    data[0x30:0x38] = b"THWJ01  "
+    data[0x30:0x38] = game_id_bytes + b"  "
     struct.pack_into("<I", data, 0x38, 0x0E)
     data[0x60:0x80] = manufacturer_bytes.ljust(32, b"\0")
     data[0x80:0xA0] = title_bytes.ljust(32, b"\0")
@@ -201,7 +204,7 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
     dol_offset = info["dol_offset"]
     image[dol_offset:dol_offset + info["dol_size"]] = info["dol"]
     fst_offset = info["fst_offset"]
-    boot_id = make_boot_id(title, DEFAULT_MANUFACTURER)
+    boot_id = make_boot_id(game_id, title, DEFAULT_MANUFACTURER)
     fst = make_triforce_fst(info["boot_id_offset"], len(boot_id))
     image[fst_offset:fst_offset + len(fst)] = fst
     image[info["boot_id_offset"]:info["boot_id_offset"] + len(boot_id)] = boot_id
@@ -235,7 +238,7 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, title=DEFAULT_TITLE,
         raise ValueError("output DOL/FST pointers did not verify")
     if fst_check != make_triforce_fst(info["boot_id_offset"]):
         raise ValueError("output Triforce FST did not verify")
-    if boot_id_check != make_boot_id(title, DEFAULT_MANUFACTURER):
+    if boot_id_check != make_boot_id(game_id, title, DEFAULT_MANUFACTURER):
         raise ValueError("output boot.id metadata did not verify")
     return info
 
@@ -247,7 +250,7 @@ def main():
     parser.add_argument("source_gcm", type=Path)
     parser.add_argument("output_bin", type=Path)
     parser.add_argument("--game-id", default=DEFAULT_GAME_ID,
-                        help="six-character homebrew ID (default: THWJ01)")
+                        help="six-character Triforce game ID (default: GEYP6E)")
     parser.add_argument("--title", default=DEFAULT_TITLE,
                         help="disc title, maximum 32 ASCII bytes")
     parser.add_argument("--max-size-mib", type=int, default=512,
