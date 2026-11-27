@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "scripts/analyze_triforce_reference.py"
+      - "scripts/analyze_triforce_ppc.py"
       - ".github/workflows/analyze-triforce-reference.yml"
   workflow_dispatch:
 
