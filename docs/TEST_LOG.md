@@ -156,3 +156,14 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Build with corrected MEM1 key aliases: [GitHub Actions run #127](https://github.com/cdmn1/triforce-ikrg/actions/runs/46084065276), CI PASS; artifact ID `15238806423`.
 - Safety: emulator-only. Restart Dolphin after this test to clear the firmware-map state. Do not run on real Triforce hardware.
 - Next: trace the full reset and SegaBoot apploader hand-off. Avoid repeating already-passed JVS or basic DI tests.
+
+
+## 2026-11-27 — Triforce SegaBoot reset/handoff probe v09 build queued
+
+- Stage: Move from the confirmed DI firmware-read mapping to a full PPC cold-reset / SegaBoot hand-off experiment.
+- Source: v09 waits for GameCube controller START, sets `0x811FFF00=1`, flushes it, then calls `SYS_ResetSystem(SYS_RESTART, 0, TRUE)`.
+- The probe does not manually issue DI reads, DI Write/Execute commands, or firmware writes. The aim is to let Dolphin's normal Triforce boot path perform the offset-`0x2440` read after reset.
+- Safety: Dolphin 2609b Triforce Baseboard mode ONLY. Do not run on real Triforce hardware.
+- Build: pending CI.
+- Emulator reset/handoff result: pending.
+- Real Triforce: not tested.
