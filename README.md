@@ -16,7 +16,7 @@ Research and development project to establish a reproducible workflow for buildi
 | Known-good Virtua Striker 2002 reference | Passed structural checks in [reference analysis run #7](https://github.com/cdmn1/triforce-ikrg/actions/runs/46030462650) |
 | Reference PowerPC static analysis | Completed; report contains section map, immediate hits and selected strings only |
 | Compact raw BIN packager | Unit tests passed; defaults now mirror reference Triforce boot metadata |
-| Dolphin recognition with corrected metadata | Expected title ID is `GEYP6E`; v04 retest pending |
+| Dolphin recognition with corrected metadata | Expected title ID is `GEYP6E`; v05 retest pending |
 | NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware transfer not tested |
 | Real Triforce boot | Not tested |
 | JVS input / game test menu | Not implemented in Hello World |
@@ -45,10 +45,10 @@ The corrected packager uses these reference values by default. The disc header r
 
 GitHub Actions uses the official devkitPro devkitPPC container. No local toolchain installation is required. The latest artifact is `triforce-hello-v04`, containing the DOL, updated packaging script, build information and checksums.
 
-To package the already-tested candidate GCM locally, use the v04 packaging script and give it a new output name, for example:
+To package the already-tested candidate GCM locally, use the v05 packaging script and give it a new output name, for example:
 
 ```text
-python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v04.bin
+python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v05.bin
 ```
 
 The script's default metadata now matches the reference values above. It still enforces the 512 MiB DIMM size limit.
