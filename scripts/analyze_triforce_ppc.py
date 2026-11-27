@@ -89,6 +89,7 @@ def main():
 
     # Look for the known reset-flag address assembled from PPC high/low immediates.
     reset_address_pairs = []
+    all_instructions = []
     for index, (file_offset, address, length) in enumerate(sections):
         with args.image.open("rb") as f:
             f.seek(dol_offset + file_offset)
@@ -98,6 +99,7 @@ def main():
             one = next(md.disasm(code[word_offset:word_offset + 4], address + word_offset), None)
             if one is not None:
                 decoded.append(one)
+        all_instructions.extend(decoded)
         for pos, insn in enumerate(decoded):
             if insn.mnemonic not in ("lis", "addis"):
                 continue
@@ -120,8 +122,26 @@ def main():
     ))
     lines.append("")
     lines.append(f"RESET FLAG 0x811FFF00 HIGH/LOW PAIRS: {len(reset_address_pairs)}")
+    instruction_by_address = {insn.address: insn for insn in all_instructions}
     for high_addr, low_addr in reset_address_pairs[:40]:
         lines.append(f"0x{high_addr:08X} + 0x{low_addr:08X} -> 0x811FFF00 candidate")
+    if reset_address_pairs:
+        lines.append("")
+        lines.append("RESET FLAG ADDRESS CODE CONTEXT (±8 instructions):")
+        emitted = set()
+        for high_addr, low_addr in reset_address_pairs[:20]:
+            for center in (high_addr, low_addr):
+                ordered = sorted(instruction_by_address)
+                try:
+                    at = ordered.index(center)
+                except ValueError:
+                    continue
+                for address in ordered[max(0, at - 8):at + 9]:
+                    if address in emitted:
+                        continue
+                    emitted.add(address)
+                    insn = instruction_by_address[address]
+                    lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     lines.append("")
     lines.append(f"INTERESTING IMMEDIATE HITS: {len(all_hits)}")
     if all_hits:
