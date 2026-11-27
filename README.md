@@ -2,7 +2,7 @@
 
 Research and development project to establish a reproducible workflow for building, packaging, validating and booting custom software on Sega/Namco/Nintendo Triforce arcade hardware.
 
-**Current milestone:** the Hello World candidate DOL boots in Dolphin 2609b with Triforce Baseboard enabled. A known-good Virtua Striker 2002 raw image has now been structurally analyzed in GitHub Actions. That comparison corrected the experimental `boot.id` metadata used by the compact NetDIMM packager. The corrected v04 package still needs a fresh Dolphin test; real Triforce hardware has not been tested.
+**Current milestone:** v07 has a valid JVS SwitchInput response in Dolphin 2609b, and both mapped Test and Service buttons are confirmed in the returned JVS data. Dolphin source shows that Test is only exposed when its SegaBoot firmware file has loaded, so this also confirms SegaBoot availability in the emulator. The next milestone is to establish the exact reset/firmware-map hand-off sequence. Real Triforce hardware has not been tested.
 
 ## Status
 
@@ -16,10 +16,10 @@ Research and development project to establish a reproducible workflow for buildi
 | Known-good Virtua Striker 2002 reference | Passed structural checks in [reference analysis run #9](https://github.com/cdmn1/triforce-ikrg/actions/runs/46031201499) |
 | Reference PowerPC static analysis | Completed; report contains section map, immediate hits and selected strings only |
 | Compact raw BIN packager | Unit tests passed; defaults now mirror reference Triforce boot metadata |
-| Dolphin recognition with corrected metadata | Expected title ID is `GEYP6E`; v06 retest pending |
+| Dolphin Triforce metadata recognition | Expected title ID `GEYP6E`; v07 JVS probe running under Triforce baseboard |
 | NetDIMM transfer protocol | Legacy Triforce uploader inspected; hardware transfer not tested |
 | Real Triforce boot | Not tested |
-| JVS input / game test menu | Not implemented in Hello World |
+| JVS SI input transport | PASS in Dolphin v07; valid SwitchInput response and checksum |\n| Test / Service controls | PASS in Dolphin v07; Test `0x80`, Service `0x40` |\n| SegaBoot availability in Dolphin | Confirmed indirectly by Test bit being exposed only when `GetTestMenu()` is true |\n| Firmware reset / hand-off | Not yet implemented or verified |
 
 The reference analysis workflow downloads the supplied Virtua Striker 2002 archive to temporary GitHub runner storage, extracts it there, and uploads only small text reports. The game image and extracted game data are not committed or uploaded as workflow artifacts.
 
