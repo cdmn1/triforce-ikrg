@@ -78,7 +78,26 @@ def read_at(f, offset, length, image_size, label):
     return data
 
 
-def inspect_gcm(path):
+def inspect_dol_data(dol_data):
+    if len(dol_data) < 0x100:
+        raise ValueError("replacement DOL is smaller than its 0x100-byte header")
+    offsets = struct.unpack_from(">18I", dol_data, 0x00)
+    addresses = struct.unpack_from(">18I", dol_data, 0x48)
+    sizes = struct.unpack_from(">18I", dol_data, 0x90)
+    sections = []
+    for index, (offset, address, size) in enumerate(zip(offsets, addresses, sizes)):
+        if not size:
+            continue
+        if offset < 0x100 or address == 0 or offset + size > len(dol_data):
+            raise ValueError(f"replacement DOL section {index} has an invalid extent")
+        sections.append((offset, address, size))
+    entry = struct.unpack_from(">I", dol_data, 0xE0)[0]
+    if not sections or not any(address <= entry < address + size for _, address, size in sections):
+        raise ValueError("replacement DOL has no valid sections or its entry point is not loaded")
+    return max([0x100] + [offset + size for offset, _, size in sections]), entry
+
+
+def inspect_gcm(path, dol_override=None):
     image_size = path.stat().st_size
     with path.open("rb") as f:
         boot = read_at(f, 0, BOOT_SIZE, image_size, "boot header")
@@ -102,25 +121,14 @@ def inspect_gcm(path):
             raise ValueError("apploader overlaps the DOL slot")
         app = read_at(f, APP_OFFSET, app_size, image_size, "apploader")
 
-        dol_header = read_at(f, dol_offset, 0x100, image_size, "DOL header")
-        offsets = struct.unpack_from(">18I", dol_header, 0x00)
-        addresses = struct.unpack_from(">18I", dol_header, 0x48)
-        sizes = struct.unpack_from(">18I", dol_header, 0x90)
-        sections = []
-        for index, (offset, address, size) in enumerate(zip(offsets, addresses, sizes)):
-            if not size:
-                continue
-            if offset < 0x100 or address == 0:
-                raise ValueError(f"DOL section {index} has invalid offset or load address")
-            end = dol_offset + offset + size
-            if end > image_size:
-                raise ValueError(f"DOL section {index} extends beyond the source image")
-            sections.append((offset, address, size))
-        entry = struct.unpack_from(">I", dol_header, 0xE0)[0]
-        if not sections or not any(address <= entry < address + size for _, address, size in sections):
-            raise ValueError("DOL has no valid sections or its entry point is not loaded")
-        dol_size = max([0x100] + [offset + size for offset, _, size in sections])
-        if dol_offset + dol_size > fst_offset:
+        if dol_override is None:
+            dol_data = read_at(f, dol_offset, fst_offset - dol_offset, image_size, "DOL data")
+            dol_source = "source GCM"
+        else:
+            dol_data = dol_override
+            dol_source = "explicit replacement DOL"
+        dol_size, entry = inspect_dol_data(dol_data)
+        if dol_offset + dol_size > fst_offset and dol_override is None:
             raise ValueError("DOL data overlaps the source FST")
 
         # Validate the source FST and all of its file extents, even though the
@@ -169,7 +177,8 @@ def inspect_gcm(path):
             "boot": boot,
             "bi2": bi2,
             "apploader": app,
-            "dol": read_at(f, dol_offset, dol_size, image_size, "DOL data"),
+            "dol": dol_data[:dol_size],
+            "dol_source": dol_source,
         }
 
 
@@ -182,7 +191,8 @@ def sha256_file(path):
 
 
 def package_image(source, output, game_id=DEFAULT_GAME_ID, boot_id=DEFAULT_BOOT_ID,
-                  title=DEFAULT_TITLE, max_size=DEFAULT_MAX_SIZE, region_flags=DEFAULT_REGION_FLAGS):
+                  title=DEFAULT_TITLE, max_size=DEFAULT_MAX_SIZE, region_flags=DEFAULT_REGION_FLAGS,
+                  dol_override=None):
     source = Path(source)
     output = Path(output)
     if not source.is_file():
@@ -207,7 +217,13 @@ def package_image(source, output, game_id=DEFAULT_GAME_ID, boot_id=DEFAULT_BOOT_
     if not title_bytes or len(title_bytes) > 32:
         raise ValueError("title must be 1 to 32 ASCII bytes")
 
-    info = inspect_gcm(source)
+    dol_override_data = None
+    if dol_override is not None:
+        dol_override = Path(dol_override)
+        if not dol_override.is_file():
+            raise ValueError("replacement DOL does not exist")
+        dol_override_data = dol_override.read_bytes()
+    info = inspect_gcm(source, dol_override_data)
     output_size = info["output_size"]
     if output_size > max_size:
         raise ValueError(
@@ -267,6 +283,8 @@ def main():
     )
     parser.add_argument("source_gcm", type=Path)
     parser.add_argument("output_bin", type=Path)
+    parser.add_argument("--dol", type=Path, default=None,
+                        help="replacement DOL to package instead of the DOL embedded in the source GCM")
     parser.add_argument("--game-id", default=DEFAULT_GAME_ID,
                         help="six-character Triforce game ID (default: GVSJ8P)")
     parser.add_argument("--boot-id", default=DEFAULT_BOOT_ID,
@@ -283,7 +301,7 @@ def main():
     try:
         info = package_image(
             args.source_gcm, args.output_bin, args.game_id, args.boot_id, args.title,
-            args.max_size_mib * 1024 * 1024, args.region_flags
+            args.max_size_mib * 1024 * 1024, args.region_flags, args.dol
         )
     except (OSError, ValueError) as exc:
         raise SystemExit("Triforce NetDIMM packaging: FAIL: " + str(exc))
