@@ -38,7 +38,7 @@ class PackageTest(unittest.TestCase):
             make_test_gcm(source)
             info = module.package_image(source, output)
             data = output.read_bytes()
-            self.assertEqual(data[:6], b"THWJ01")
+            self.assertEqual(data[:6], b"GEYP6E")
             _, fst_offset, fst_size, fst_max = struct.unpack_from(">IIII", data, 0x420)
             self.assertEqual(fst_size, 33)
             self.assertEqual(fst_max, fst_size)
@@ -52,10 +52,24 @@ class PackageTest(unittest.TestCase):
             boot_id = data[file_offset:file_offset + file_size]
             self.assertEqual(boot_id[:4], b"BTID")
             self.assertEqual(boot_id[0x20:0x24], b"GCAM")
+            self.assertEqual(boot_id[0x30:0x38], b"GEYP6E  ")
             self.assertEqual(struct.unpack_from("<I", boot_id, 0x38)[0], 0x0E)
             self.assertEqual(boot_id[0x80:0xA0].rstrip(b"\0"), module.DEFAULT_TITLE.encode())
             self.assertEqual(data[0x3100:0x3120], b"D" * 0x20)
             self.assertNotIn(b"file.bin", data)
+
+    def test_custom_game_id_is_written_to_header_and_boot_id(self):
+        with tempfile.TemporaryDirectory() as td:
+            source = Path(td) / "source.iso"
+            output = Path(td) / "custom.bin"
+            make_test_gcm(source)
+            module.package_image(source, output, game_id="GEYP6E")
+            data = output.read_bytes()
+            self.assertEqual(data[:6], b"GEYP6E")
+            _, fst_offset, _, _ = struct.unpack_from(">IIII", data, 0x420)
+            _, boot_id_offset, boot_id_size = struct.unpack_from(">III", data, fst_offset + 12)
+            boot_id = data[boot_id_offset:boot_id_offset + boot_id_size]
+            self.assertEqual(boot_id[0x30:0x38], b"GEYP6E  ")
 
     def test_refuses_payload_over_limit_without_output(self):
         with tempfile.TemporaryDirectory() as td:
