@@ -138,7 +138,7 @@ The v09 DOL displays a warning and waits for the GameCube controller START butto
 
 **Dolphin 2609b / Triforce Baseboard only. Do not run v09 on real Triforce hardware.** Ensure `segaboot.gcm` and `IPL_TRI.bin` are configured in Dolphin. A successful result should leave the probe screen and enter the SegaBoot boot/menu path. If it returns to the probe or errors, capture the Dolphin log and screen. The reset/handoff result is pending.
 
-Build artifact will be named `triforce-hello-v09`. Package the DOL explicitly with:
+Build artifact [triforce-hello-v09](https://github.com/cdmn1/triforce-ikrg/actions/runs/46084690570) is built and CI-validated (artifact ID `15237679896`). Package the DOL explicitly with:
 
 ```text
 python package_triforce_netboot.py candidate-homebrew.iso triforce-hello-v09.bin --dol triforce-hello-v09.dol
