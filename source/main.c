@@ -126,9 +126,12 @@ int main(int argc, char **argv)
     // Dolphin seeds its AM-Mediaboard command decoder from these RAM words
     // during Triforce boot. The probe deliberately uses seed 1 so keys remain
     // unchanged between its two read commands.
-    const u32 key_a = *(volatile u32 *)0x00000000;
-    const u32 key_b = *(volatile u32 *)0x00000004;
-    const u32 key_c = *(volatile u32 *)0x00000008;
+    // Dolphin seeds these values in physical RAM offsets 0, 4 and 8.
+    // The PPC must access MEM1 through its cached 0x80000000 alias; virtual
+    // addresses 0x00000000..0x00000008 are unmapped and cause a DSI.
+    const u32 key_a = *(volatile u32 *)0x80000000;
+    const u32 key_b = *(volatile u32 *)0x80000004;
+    const u32 key_c = *(volatile u32 *)0x80000008;
     const u32 sega_signature = *SEGA_BOOT_SIGNATURE_ADDRESS;
 
     printf("\x1b[8;0HDI keys A/B/C: %08X %08X %08X", key_a, key_b, key_c);
