@@ -48,21 +48,21 @@ jobs:
       - name: Create versioned artifact
         run: |
           mkdir -p dist
-          cp triforce-hello.dol dist/triforce-hello-v06.dol
+          cp triforce-hello.dol dist/triforce-hello-v07.dol
           cp scripts/package_triforce_netboot.py dist/package_triforce_netboot.py
-          sha256sum dist/triforce-hello-v06.dol dist/package_triforce_netboot.py > dist/SHA256SUMS.txt
+          sha256sum dist/triforce-hello-v07.dol dist/package_triforce_netboot.py > dist/SHA256SUMS.txt
           {
-            echo "Triforce Hello World v06 — full reference boot.id metadata"
+            echo "Triforce JVS Input Probe v07 — SI/JVS Test and Service diagnostics"
             echo "Commit: $GITHUB_SHA"
             echo "Container: devkitpro/devkitppc:20261102"
             echo "Artifact files:"
-            echo "  triforce-hello-v06.dol"
+            echo "  triforce-hello-v07.dol"
             echo "  package_triforce_netboot.py"
           } > dist/BUILD-INFO.txt
 
       - name: Upload build and packaging tools
         uses: actions/upload-artifact@v4
         with:
-          name: triforce-hello-v06
+          name: triforce-hello-v07
           path: dist/
           if-no-files-found: error
