@@ -80,7 +80,7 @@ class PackageTest(unittest.TestCase):
             struct.pack_into(">I", dol, 0x48, 0x80003100)
             struct.pack_into(">I", dol, 0x90, 0x20)
             struct.pack_into(">I", dol, 0xE0, 0x80003100)
-            dol[0x100:0x120] = b"V07-REPLACEMENT-DOL-MARKER"
+            dol[0x100:0x120] = b"V07-REPLACEMENT-DOL-MARKER".ljust(0x20, b"!")
             replacement.write_bytes(dol)
             info = module.package_image(source, output, dol_override=replacement)
             packed = output.read_bytes()
