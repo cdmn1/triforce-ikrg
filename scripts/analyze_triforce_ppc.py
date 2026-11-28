@@ -506,9 +506,34 @@ def main():
             for address in ordered[max(0, at - 12):at + 8]:
                 insn = instruction_by_address[address]
                 lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Follow the functions feeding the command scanner's input/state path.
+    scanner_dependencies = (0x80193E10, 0x8001028C, 0x80031524,
+                            0x8005F6B4, 0x8006A4E8, 0x80148A38, 0x801B031C)
+    lines.append("")
+    lines.append("COMMAND-SCANNER INPUT / STATE DEPENDENCIES:")
+    ordered = sorted(instruction_by_address)
+    for target in scanner_dependencies:
+        if target not in instruction_by_address:
+            lines.append(f"-- dependency 0x{target:08X}: target not decoded --")
+            continue
+        at = ordered.index(target)
+        prologues = [a for a in ordered[max(0, at - 180):at + 1]
+                     if instruction_by_address[a].mnemonic == "stwu"
+                     and instruction_by_address[a].op_str.startswith("r1, -")]
+        start = prologues[-1] if prologues and prologues[-1] >= target - 0x300 else target
+        returns = [a for a in ordered[at:min(len(ordered), at + 1000)]
+                   if instruction_by_address[a].mnemonic == "blr"]
+        end = returns[0] if returns else ordered[min(len(ordered) - 1, at + 160)]
+        callers = [a for a, op in calls
+                   if op.strip().lower() in (hex(target), f"0x{target:08x}")]
+        lines.append(f"-- dependency 0x{target:08X}, routine 0x{start:08X}..0x{end:08X}; callers: " +
+                     (", ".join(f"0x{x:08X}" for x in callers[:30]) or "(none found)") + " --")
+        for address in ordered[ordered.index(start):ordered.index(end) + 1]:
+            insn = instruction_by_address[address]
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     lines.append("")
     lines.append("TARGETED CODE WINDOWS:")
-    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x801CF8D0, 0x801BBB90, 0x801BBB84, 0x801BBD0C, 0x801BFA3C, 0x801BF8A4, 0x801BF01C, 0x801BF084, 0x801BFC20, 0x8003ECC0, 0x8003EC98, 0x8003ED10, 0x8005C074, 0x8005C000, 0x801C8E28, 0x801C5E7C, 0x801C5DF8, 0x801C5D00, 0x801C5F34, 0x801C5FAC, 0x801C6014, 0x801C6058, 0x801C6080, 0x80231BA8, 0x80231934, 0x801F0824, 0x801C8E00, 0x801C8F00, 0x8022D5C4, 0x8022D5E8, 0x801C6A60, 0x801C6AB4, 0x801C6AC0, 0x801C6B00, 0x800091E0, 0x80009238, 0x800092A8, 0x80009354, 0x8001AE04, 0x8001AE34, 0x80039B00, 0x80039B40, 0x80039C00, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
+    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x801CF8D0, 0x801BBB90, 0x801BBB84, 0x801BBD0C, 0x801BFA3C, 0x801BF8A4, 0x801BF01C, 0x801BF084, 0x801BFC20, 0x8003ECC0, 0x8003EC98, 0x8003ED10, 0x8005C074, 0x8005C000, 0x801C8E28, 0x801C5E7C, 0x801C5DF8, 0x801C5D00, 0x801C5F34, 0x801C5FAC, 0x801C6014, 0x801C6058, 0x801C6080, 0x80231BA8, 0x80231934, 0x801F0824, 0x801C8E00, 0x801C8F00, 0x8022D5C4, 0x8022D5E8, 0x801C6A60, 0x801C6AB4, 0x801C6AC0, 0x801C6B00, 0x800091E0, 0x80009238, 0x800092A8, 0x80009354, 0x8001AE04, 0x8001AE34, 0x80039B00, 0x80039B40, 0x80039C00, 0x80193E10, 0x8001028C, 0x80031524, 0x8005F6B4, 0x8006A4E8, 0x80148A38, 0x801B031C, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
         if center not in instruction_by_address:
             continue
         at = ordered.index(center)
