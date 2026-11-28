@@ -130,7 +130,26 @@ def main():
         "; ".join(f"0x{addr:08X} {op}" for addr, op in calls[:80]) or "(none)"
     ))
     lines.append("")
+    # Detect the common PPC form for 0x811FFF00: lis rN, 0x8120
+    # followed by an address calculation or D-form load/store at -0x100(rN).
+    reset_direct_accesses = []
+    for pos, insn in enumerate(all_instructions):
+        if insn.mnemonic not in ("lis", "addis") or len(insn.operands) < 2:
+            continue
+        if insn.operands[-1].type != PPC_OP_IMM or (insn.operands[-1].imm & 0xFFFF) != 0x8120:
+            continue
+        base_reg = insn.operands[0].reg
+        for nxt in all_instructions[pos + 1:pos + 17]:
+            ops = nxt.operands
+            if nxt.mnemonic in ("addi", "addis") and len(ops) >= 3 and ops[1].reg == base_reg and ops[-1].type == PPC_OP_IMM and ops[-1].imm == -0x100:
+                reset_direct_accesses.append((insn.address, nxt.address, "address calculation"))
+            for op in ops:
+                if op.type == 3 and op.mem.base == base_reg and op.mem.disp == -0x100:
+                    reset_direct_accesses.append((insn.address, nxt.address, nxt.mnemonic))
     lines.append(f"RESET FLAG 0x811FFF00 HIGH/LOW PAIRS: {len(reset_address_pairs)}")
+    lines.append(f"RESET FLAG 0x811FFF00 DIRECT 0x81200000/-0x100 ACCESS CANDIDATES: {len(reset_direct_accesses)}")
+    for high_addr, access_addr, kind in reset_direct_accesses[:80]:
+        lines.append(f"0x{high_addr:08X} -> 0x{access_addr:08X} [{kind}]")
     instruction_by_address = {insn.address: insn for insn in all_instructions}
     for high_addr, low_addr in reset_address_pairs[:40]:
         lines.append(f"0x{high_addr:08X} + 0x{low_addr:08X} -> 0x811FFF00 candidate")
