@@ -321,6 +321,22 @@ def main():
             for address in ordered[max(0, at - 5):at + 8]:
                 insn = instruction_by_address[address]
                 lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+        for caller in direct[:20]:
+            try:
+                at = ordered.index(caller)
+            except ValueError:
+                continue
+            starts = [a for a in ordered[max(0, at - 180):at + 1]
+                      if instruction_by_address[a].mnemonic == "stwu"
+                      and instruction_by_address[a].op_str.startswith("r1, -")]
+            start = starts[-1] if starts else ordered[max(0, at - 12)]
+            ends = [a for a in ordered[at:min(len(ordered), at + 500)]
+                    if instruction_by_address[a].mnemonic == "blr"]
+            end = ends[0] if ends else ordered[min(len(ordered) - 1, at + 80)]
+            lines.append(f"CALLER ROUTINE 0x{start:08X}..0x{end:08X} for target 0x{target:08X}:")
+            for address in ordered[ordered.index(start):ordered.index(end) + 1]:
+                insn = instruction_by_address[address]
+                lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     lines.append("")
     if di_register_pairs:
         lines.append("")
