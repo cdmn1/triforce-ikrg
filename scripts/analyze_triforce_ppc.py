@@ -596,6 +596,55 @@ def main():
             for address in ordered[max(0, at - 5):at + 10]:
                 insn = instruction_by_address[address]
                 lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Search all PPC address constructions in the broader test-menu
+    # data region, including object/table bases that are not individual
+    # string-pointer entries.
+    lines.append("")
+    lines.append("TEST MENU DATA-REGION ADDRESS REFERENCES (0x8026D000-0x8026E800):")
+    region_refs = []
+    for pos, insn in enumerate(all_instructions):
+        if insn.mnemonic not in ("lis", "addis") or len(insn.operands) < 2:
+            continue
+        if insn.operands[-1].type != PPC_OP_IMM:
+            continue
+        high = insn.operands[-1].imm & 0xFFFF
+        base_reg = insn.operands[0].reg
+        for nxt in all_instructions[pos + 1:pos + 5]:
+            ops = nxt.operands
+            if len(ops) < 3 or ops[1].reg != base_reg or ops[-1].type != PPC_OP_IMM:
+                continue
+            low = ops[-1].imm
+            if nxt.mnemonic == "addi":
+                value = ((high << 16) + low) & 0xFFFFFFFF
+            elif nxt.mnemonic == "ori":
+                value = (high << 16) | (low & 0xFFFF)
+            else:
+                continue
+            if 0x8026D000 <= value < 0x8026E800:
+                region_refs.append((value, insn.address, nxt.address))
+                break
+    for value, high_addr, low_addr in region_refs[:160]:
+        lines.append(f"0x{value:08X} constructed at 0x{high_addr:08X}/0x{low_addr:08X}")
+        at = ordered.index(high_addr)
+        for address in ordered[max(0, at - 4):at + 8]:
+            insn = instruction_by_address[address]
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Search data sections for pointers to the test-menu descriptor entries.
+    menu_roots = set(menu_pointer_refs) | {0x8026D4A0}
+    menu_root_refs = {root: [] for root in menu_roots}
+    for file_offset, section_addr, section_len in sections:
+        with args.image.open("rb") as f:
+            f.seek(dol_offset + file_offset)
+            section_data = f.read(section_len)
+        for pos in range(0, len(section_data) - 3, 4):
+            value = struct.unpack_from(">I", section_data, pos)[0]
+            if value in menu_root_refs:
+                menu_root_refs[value].append(section_addr + pos)
+    lines.append("")
+    lines.append("TEST MENU TABLE POINTERS REFERENCED FROM OTHER DATA:")
+    for root, refs in sorted(menu_root_refs.items()):
+        if refs:
+            lines.append(f"0x{root:08X} stored at: " + ", ".join(f"0x{x:08X}" for x in refs[:40]))
     # Dump the contiguous test-menu descriptor/string pointer area.
     table_address = 0x8026D4A0
     table_size = 0x200
