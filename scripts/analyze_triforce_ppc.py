@@ -490,6 +490,8 @@ def main():
     # The test-menu text is in the DOL's read-only data section. Resolve its
     # virtual addresses from the section map and report direct PPC references.
     menu_strings = (
+        (0x23A768, "JVS I/O board is not connected to main board."),
+        (0x23A7A4, "JVS I/O board does not fulfill the game spec."),
         (0x26A3F8, "VIRTUA STRIKER 2002 TEST MENU"),
         (0x26A418, "INPUT TEST"),
         (0x26A424, "OUTPUT TEST"),
@@ -542,8 +544,18 @@ def main():
                     string_refs.add(insn.address)
                     string_refs.add(nxt.address)
                     break
+        data_refs = []
+        with args.image.open("rb") as f:
+            for section_file, section_addr, section_len in sections:
+                f.seek(dol_offset + section_file)
+                section_data = f.read(section_len)
+                for pos in range(0, len(section_data) - 3, 4):
+                    if struct.unpack_from(">I", section_data, pos)[0] == string_addr:
+                        data_refs.append(section_addr + pos)
         lines.append(f"{label} @ 0x{string_addr:08X}: " +
-                     (", ".join(f"0x{a:08X}/0x{b:08X}" for a,b in hits[:12]) or "(no direct lis+addi reference found)"))
+                     (", ".join(f"0x{a:08X}/0x{b:08X}" for a,b in hits[:12]) or "(no direct lis+addi reference found)") +
+                     "; pointer-table refs: " +
+                     (", ".join(f"0x{x:08X}" for x in data_refs[:24]) or "(none)"))
     # Report context around logical mask-building instructions. In PPC, ORIS
     # shifts the 16-bit immediate into the upper half, so 0x0800/0x1000
     # may appear as ORIS immediates rather than low-half AND masks.
