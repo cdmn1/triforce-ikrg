@@ -337,6 +337,28 @@ def main():
             for address in ordered[ordered.index(start):ordered.index(end) + 1]:
                 insn = instruction_by_address[address]
                 lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Dump complete Triforce MMIO/command handlers rather than only
+    # short windows. These routines touch the 0xCC006000 board register.
+    board_handler_targets = (0x801C6A20, 0x801C6B30, 0x801C6FE8,
+                             0x801C7138, 0x801C709C, 0x801C726C,
+                             0x801C7408, 0x801C86D4, 0x801C89E4)
+    lines.append("")
+    lines.append("TRIFORCE MMIO / COMMAND HANDLER ROUTINES:")
+    ordered = sorted(instruction_by_address)
+    for target in board_handler_targets:
+        if target not in instruction_by_address:
+            continue
+        at = ordered.index(target)
+        ends = [a for a in ordered[at:min(len(ordered), at + 1200)]
+                if instruction_by_address[a].mnemonic == "blr"]
+        end = ends[0] if ends else ordered[min(len(ordered) - 1, at + 180)]
+        direct = [a for a, op in calls if op.strip().lower() in
+                  (hex(target), f"0x{target:08x}")]
+        lines.append(f"-- handler 0x{target:08X}..0x{end:08X}; direct callers: " +
+                     (", ".join(f"0x{x:08X}" for x in direct) or "(none found)") + " --")
+        for address in ordered[at:ordered.index(end) + 1]:
+            insn = instruction_by_address[address]
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     # Inspect the SI subsystem's small-data globals. In particular,
     # -0x16F0(r13) supplies the command word ORed with 0x00400000 by
     # the channel setup routines.
