@@ -256,13 +256,35 @@ def main():
             for nxt in all_instructions[max(0, pos+1):pos+5]:
                 nops = nxt.operands
                 if len(nops) >= 3 and nops[-1].type == PPC_OP_IMM and (nops[-1].imm & 0xFFFF) == low:
-                    if nops[0].reg == dest and nops[1].reg == dest:
+                    if nops[1].reg == dest:
                         hits.append((insn.address, nxt.address))
                         string_refs.add(insn.address)
                         string_refs.add(nxt.address)
                         break
         lines.append(f"{label} @ 0x{string_addr:08X}: " +
                      (", ".join(f"0x{a:08X}/0x{b:08X}" for a,b in hits[:12]) or "(no direct lis+addi reference found)"))
+    # Report context around logical mask-building instructions. In PPC, ORIS
+    # shifts the 16-bit immediate into the upper half, so 0x0800/0x1000
+    # may appear as ORIS immediates rather than low-half AND masks.
+    logical_mask_candidates = [
+        insn for insn in all_instructions
+        if insn.mnemonic in ("ori", "oris", "andi.", "andis.")
+        and any((op.imm & 0xFFFF) in (0x0800, 0x1000) for op in insn.operands
+                if op.type == PPC_OP_IMM)
+    ]
+    lines.append("")
+    lines.append(f"LOGICAL TEST/SERVICE MASK CANDIDATES: {len(logical_mask_candidates)}")
+    if logical_mask_candidates:
+        ordered_addresses = sorted(instruction_by_address)
+        emitted = set()
+        for center_insn in logical_mask_candidates[:80]:
+            at = ordered_addresses.index(center_insn.address)
+            for address in ordered_addresses[max(0, at-20):at+21]:
+                if address not in emitted:
+                    emitted.add(address)
+                    insn = instruction_by_address[address]
+                    lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+
     if string_refs:
         ordered_addresses = sorted(instruction_by_address)
         lines.append("")
