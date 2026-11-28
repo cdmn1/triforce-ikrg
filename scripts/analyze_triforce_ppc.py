@@ -15,7 +15,7 @@ from capstone.ppc import PPC_OP_IMM
 
 INTERESTING = {
     0x811F, 0x8120, 0xCC00, 0xFF00, 0x2440, 0x0910, 0x4000, 0x6000, 0x7000,
-    0x400000, 0x600000, 0x700000, 0xA8, 0xAA, 0xAB,
+    0x400000, 0x600000, 0x700000, 0x1000, 0x0800, 0x80, 0x40, 0xA8, 0xAA, 0xAB,
     0xCC006000, 0xCC006004, 0xCC006008, 0xCC00600C,
 }
 STRING_TERMS = (
@@ -209,6 +209,73 @@ def main():
         lower = value.lower()
         if any(term in lower for term in STRING_TERMS):
             strings.append((match.start(), value[:100]))
+    lines.append("")
+    lines.append("TEST-MENU / JVS INPUT INVESTIGATION")
+    lines.append("Immediate-mask candidates (inspect surrounding function before assigning meaning):")
+    mask_hits = []
+    for insn in all_instructions:
+        immediates = [op.imm & 0xFFFFFFFF for op in insn.operands if op.type == PPC_OP_IMM]
+        if any(value in (0x1000, 0x0800, 0x80, 0x40) for value in immediates):
+            mask_hits.append(insn)
+    lines.append(f"BUTTON-MASK IMMEDIATE HITS: {len(mask_hits)}")
+    for insn in mask_hits[:300]:
+        lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+
+    # The test-menu text is in the DOL's read-only data section. Resolve its
+    # virtual addresses from the section map and report direct PPC references.
+    menu_strings = (
+        (0x26A3F8, "VIRTUA STRIKER 2002 TEST MENU"),
+        (0x26A418, "INPUT TEST"),
+        (0x26A424, "OUTPUT TEST"),
+        (0x26A464, "SELECT WITH SERVICE BUTTON"),
+        (0x26A480, "AND PRESS TEST BUTTON"),
+        (0x26AB68, "PRESS TEST BUTTON TO CONTINUE"),
+        (0x26B014, "PRESS TEST BUTTON TO EXIT"),
+        (0x26B744, "PRESS TEST AND SERVICE BUTTON TO EXIT"),
+    )
+    lines.append("")
+    lines.append("TEST-MENU STRING REFERENCES:")
+    string_refs = set()
+    for dol_file_offset, label in menu_strings:
+        for section_file, section_addr, section_len in sections:
+            if section_file <= dol_file_offset < section_file + section_len:
+                string_addr = section_addr + (dol_file_offset - section_file)
+                break
+        else:
+            continue
+        hits = []
+        high = (string_addr >> 16) & 0xFFFF
+        low = string_addr & 0xFFFF
+        for pos, insn in enumerate(all_instructions):
+            if insn.mnemonic not in ("lis", "addis"):
+                continue
+            ops = insn.operands
+            if len(ops) < 2 or ops[-1].type != PPC_OP_IMM or (ops[-1].imm & 0xFFFF) != high:
+                continue
+            dest = ops[0].reg
+            for nxt in all_instructions[max(0, pos+1):pos+5]:
+                nops = nxt.operands
+                if len(nops) >= 3 and nops[-1].type == PPC_OP_IMM and (nops[-1].imm & 0xFFFF) == low:
+                    if nops[0].reg == dest and nops[1].reg == dest:
+                        hits.append((insn.address, nxt.address))
+                        string_refs.add(insn.address)
+                        string_refs.add(nxt.address)
+                        break
+        lines.append(f"{label} @ 0x{string_addr:08X}: " +
+                     (", ".join(f"0x{a:08X}/0x{b:08X}" for a,b in hits[:12]) or "(no direct lis+addi reference found)"))
+    if string_refs:
+        ordered_addresses = sorted(instruction_by_address)
+        lines.append("")
+        lines.append("CODE AROUND TEST-MENU STRING REFERENCES (±12 instructions):")
+        emitted = set()
+        for center in sorted(string_refs):
+            at = ordered_addresses.index(center)
+            for address in ordered_addresses[max(0, at-12):at+13]:
+                if address not in emitted:
+                    emitted.add(address)
+                    insn = instruction_by_address[address]
+                    lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+
     lines.append(f"SELECTED DOL STRINGS: {len(strings)}")
     for offset, value in strings[:100]:
         lines.append(f"file+0x{offset:X}: {value}")
