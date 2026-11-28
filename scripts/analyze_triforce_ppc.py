@@ -504,6 +504,7 @@ def main():
     lines.append("")
     lines.append("TEST-MENU STRING REFERENCES:")
     string_refs = set()
+    menu_pointer_refs = set()
     for dol_file_offset, label in menu_strings:
         for section_file, section_addr, section_len in sections:
             if section_file <= dol_file_offset < section_file + section_len:
@@ -552,10 +553,64 @@ def main():
                 for pos in range(0, len(section_data) - 3, 4):
                     if struct.unpack_from(">I", section_data, pos)[0] == string_addr:
                         data_refs.append(section_addr + pos)
-        lines.append(f"{label} @ 0x{string_addr:08X}: " +
+        menu_pointer_refs.update(data_refs)
+        lines.append(f"{label} @ 0x{string_addr:08X}: "
                      (", ".join(f"0x{a:08X}/0x{b:08X}" for a,b in hits[:12]) or "(no direct lis+addi reference found)") +
                      "; pointer-table refs: " +
                      (", ".join(f"0x{x:08X}" for x in data_refs[:24]) or "(none)"))
+    # Follow the menu string pointer table back into code. These table
+    # entries are often referenced by a base pointer/index rather than by
+    # loading each string address directly.
+    lines.append("")
+    lines.append("TEST MENU POINTER-TABLE CODE REFERENCES:")
+    menu_pointer_refs = set(sorted(menu_pointer_refs)[:40])
+    constructed_refs = {target: [] for target in menu_pointer_refs}
+    for pos, insn in enumerate(all_instructions):
+        if insn.mnemonic not in ("lis", "addis") or len(insn.operands) < 2:
+            continue
+        if insn.operands[-1].type != PPC_OP_IMM:
+            continue
+        high = insn.operands[-1].imm & 0xFFFF
+        base_reg = insn.operands[0].reg
+        for nxt in all_instructions[pos + 1:pos + 5]:
+            ops = nxt.operands
+            if len(ops) < 3 or ops[1].reg != base_reg or ops[-1].type != PPC_OP_IMM:
+                continue
+            low = ops[-1].imm
+            if nxt.mnemonic == "addi":
+                value = ((high << 16) + low) & 0xFFFFFFFF
+            elif nxt.mnemonic == "ori":
+                value = (high << 16) | (low & 0xFFFF)
+            else:
+                continue
+            if value in constructed_refs:
+                constructed_refs[value].append((insn.address, nxt.address))
+                break
+    for target in sorted(menu_pointer_refs):
+        refs = constructed_refs.get(target, [])
+        lines.append(f"TABLE ENTRY 0x{target:08X}: " +
+                     (", ".join(f"0x{a:08X}/0x{b:08X}" for a, b in refs[:20]) or "(no direct code address construction found)"))
+        for high_addr, low_addr in refs[:8]:
+            at = ordered.index(high_addr)
+            lines.append(f"TABLE XREF CONTEXT at 0x{high_addr:08X}:")
+            for address in ordered[max(0, at - 5):at + 10]:
+                insn = instruction_by_address[address]
+                lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Dump the contiguous test-menu descriptor/string pointer area.
+    table_address = 0x8026D4A0
+    table_size = 0x200
+    for file_offset, section_addr, section_len in sections:
+        if section_addr <= table_address and table_address + table_size <= section_addr + section_len:
+            rel = table_address - section_addr
+            with args.image.open("rb") as f:
+                f.seek(dol_offset + file_offset + rel)
+                table = f.read(table_size)
+            lines.append("")
+            lines.append(f"TEST MENU POINTER AREA @ 0x{table_address:08X}:")
+            for off in range(0, len(table), 0x10):
+                chunk = table[off:off + 0x10]
+                lines.append(f"+0x{off:03X}: " + " ".join(f"{b:02X}" for b in chunk))
+            break
     # Report context around logical mask-building instructions. In PPC, ORIS
     # shifts the 16-bit immediate into the upper half, so 0x0800/0x1000
     # may appear as ORIS immediates rather than low-half AND masks.
