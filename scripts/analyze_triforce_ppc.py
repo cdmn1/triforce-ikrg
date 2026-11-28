@@ -177,6 +177,35 @@ def main():
     lines.append(f"DI MMIO REGISTER ADDRESS PAIRS: {len(di_register_pairs)}")
     for high_addr, low_addr, effective in di_register_pairs[:100]:
         lines.append(f"0x{high_addr:08X} + 0x{low_addr:08X} -> 0x{effective:08X}")
+    si_direct_accesses = []
+    for pos, insn in enumerate(all_instructions):
+        if insn.mnemonic not in ("lis", "addis") or len(insn.operands) < 2:
+            continue
+        if insn.operands[-1].type != PPC_OP_IMM or (insn.operands[-1].imm & 0xFFFF) != 0xCC00:
+            continue
+        base_reg = insn.operands[0].reg
+        for nxt in all_instructions[pos + 1:pos + 25]:
+            for op in nxt.operands:
+                if op.type == 3 and op.mem.base == base_reg and 0x6400 <= op.mem.disp <= 0x6420:
+                    si_direct_accesses.append((insn.address, nxt.address, op.mem.disp, nxt.mnemonic, nxt.op_str))
+    if si_direct_accesses:
+        lines.append("")
+        lines.append(f"SI MMIO DIRECT ACCESS CANDIDATES: {len(si_direct_accesses)}")
+        for high_addr, access_addr, disp, mnemonic, operands in si_direct_accesses[:160]:
+            lines.append(f"0x{high_addr:08X} -> 0x{access_addr:08X}: {mnemonic} {operands} [0xCC00{disp:04X}]")
+        lines.append("SI MMIO DIRECT ACCESS CONTEXT (±10 instructions):")
+        emitted = set()
+        ordered = sorted(instruction_by_address)
+        for high_addr, access_addr, disp, mnemonic, operands in si_direct_accesses[:50]:
+            try:
+                at = ordered.index(access_addr)
+            except ValueError:
+                continue
+            for address in ordered[max(0, at - 10):at + 11]:
+                if address not in emitted:
+                    emitted.add(address)
+                    insn = instruction_by_address[address]
+                    lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     if si_register_pairs:
         lines.append("")
         lines.append(f"SI MMIO REGISTER ADDRESS PAIRS: {len(si_register_pairs)}")
