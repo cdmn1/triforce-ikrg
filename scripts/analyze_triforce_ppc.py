@@ -823,6 +823,7 @@ def main():
         (b"\xE0\x01\x04\x20\x01\x02\x28", "JVS SwitchInput request"),
         (b"\xE0\xFF\x03\xF1\x01\xF4", "JVS SetAddress broadcast"),
         (b"\x20\x01\x02", "JVS SwitchInput command body"),
+        (bytes.fromhex("20 01 02 21 02 04 39 22 05 03 15 23 03 05 12 24 02 02 30 25 05 01 11"), "JVS input command descriptor sequence"),
     )
     lines.append("")
     lines.append("RAW GC-AM / JVS PACKET BYTE-PATTERN SCAN:")
@@ -851,6 +852,65 @@ def main():
                         sample = f.read(min(32, section_len - max(0, rel - 8)))
                     lines.append(f"  context @ 0x{hit:08X}: {sample.hex(' ').upper()}")
                     break
+    # Trace the JVS input command descriptor block discovered in the
+    # loaded DOL and locate code/data references to its address range.
+    lines.append("")
+    lines.append("JVS INPUT COMMAND TABLE ADDRESS REFERENCES (0x802C6000-0x802C6300):")
+    jvs_table_refs = []
+    for pos, insn in enumerate(all_instructions):
+        if insn.mnemonic not in ("lis", "addis") or len(insn.operands) < 2:
+            continue
+        if insn.operands[-1].type != PPC_OP_IMM:
+            continue
+        high = insn.operands[-1].imm & 0xFFFF
+        base_reg = insn.operands[0].reg
+        for nxt in all_instructions[pos + 1:pos + 5]:
+            ops = nxt.operands
+            if len(ops) < 3 or ops[1].reg != base_reg or ops[-1].type != PPC_OP_IMM:
+                continue
+            low = ops[-1].imm
+            if nxt.mnemonic == "addi":
+                value = ((high << 16) + low) & 0xFFFFFFFF
+            elif nxt.mnemonic == "ori":
+                value = (high << 16) | (low & 0xFFFF)
+            else:
+                continue
+            if 0x802C6000 <= value < 0x802C6300:
+                jvs_table_refs.append((value, insn.address, nxt.address))
+                break
+    for value, high_addr, low_addr in jvs_table_refs[:160]:
+        lines.append(f"0x{value:08X} constructed at 0x{high_addr:08X}/0x{low_addr:08X}")
+        at = ordered.index(high_addr)
+        for address in ordered[max(0, at - 4):at + 8]:
+            insn = instruction_by_address[address]
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    jvs_table_roots = (0x802C6100, 0x802C6160, 0x802C616C, 0x802C616D)
+    for root in jvs_table_roots:
+        refs = []
+        for file_offset, section_addr, section_len in sections:
+            with args.image.open("rb") as f:
+                f.seek(dol_offset + file_offset)
+                section_data = f.read(section_len)
+            for pos in range(0, len(section_data) - 3, 4):
+                if struct.unpack_from(">I", section_data, pos)[0] == root:
+                    refs.append(section_addr + pos)
+        lines.append(f"DATA POINTERS TO 0x{root:08X}: " +
+                     (", ".join(f"0x{x:08X}" for x in refs[:40]) or "(none)"))
+    jvs_dump_address = 0x802C6100
+    jvs_dump_size = 0x200
+    for file_offset, section_addr, section_len in sections:
+        if section_addr <= jvs_dump_address and jvs_dump_address + jvs_dump_size <= section_addr + section_len:
+            rel = jvs_dump_address - section_addr
+            with args.image.open("rb") as f:
+                f.seek(dol_offset + file_offset + rel)
+                dump = f.read(jvs_dump_size)
+            lines.append("")
+            lines.append(f"JVS INPUT COMMAND TABLE DATA @ 0x{jvs_dump_address:08X}:")
+            for off in range(0, len(dump), 0x10):
+                chunk = dump[off:off + 0x10]
+                ascii_text = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+                lines.append(f"+0x{off:03X}: " + " ".join(f"{b:02X}" for b in chunk) + f"  {ascii_text}")
+            break
     # Dump the contiguous test-menu descriptor/string pointer area.
     table_address = 0x8026D4A0
     table_size = 0x200
