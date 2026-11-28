@@ -382,6 +382,23 @@ def main():
                                              nxt.mnemonic, nxt.op_str))
     for load_addr, store_addr, field_offset, mnemonic, operands in structure_writes[:200]:
         lines.append(f"base load 0x{load_addr:08X} -> field +0x{field_offset:X} at 0x{store_addr:08X}: {mnemonic} {operands}")
+    # Inspect the JVS diagnostic/data area near 0x8023D768 and the
+    # 4-byte constant referenced by the shared input-state initializer.
+    dump_address = 0x8023D700
+    dump_size = 0x300
+    for file_offset, section_addr, section_len in sections:
+        if section_addr <= dump_address and dump_address + dump_size <= section_addr + section_len:
+            rel = dump_address - section_addr
+            with args.image.open("rb") as f:
+                f.seek(dol_offset + file_offset + rel)
+                dump = f.read(dump_size)
+            lines.append("")
+            lines.append(f"JVS / INPUT INITIALIZATION DATA @ 0x{dump_address:08X}:")
+            for off in range(0, len(dump), 0x10):
+                chunk = dump[off:off + 0x10]
+                ascii_text = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+                lines.append(f"+0x{off:03X}: " + " ".join(f"{b:02X}" for b in chunk) + f"  {ascii_text}")
+            break
     # Dump the three 0x30-byte command descriptor groups used by the
     # SI setup routine at 0x802109BC, if the virtual range maps to a DOL section.
     table_address = 0x803A8B30
@@ -442,7 +459,7 @@ def main():
         lines.append("CALL XREFS: " + (", ".join(f"0x{a:08X}" for a, _ in xrefs) or "(none found)"))
     lines.append("")
     lines.append("TARGETED CODE WINDOWS:")
-    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x801CF8D0, 0x801BBB90, 0x801BBB84, 0x801BBD0C, 0x801BFA3C, 0x801BF8A4, 0x801BF01C, 0x801BF084, 0x801BFC20, 0x8003ECC0, 0x8003EC98, 0x8003ED10, 0x8005C074, 0x8005C000, 0x801C8E28, 0x801C5E7C, 0x801C5DF8, 0x801C5D00, 0x801C5F34, 0x801C5FAC, 0x801C6014, 0x801C6058, 0x801C6080, 0x80231BA8, 0x80231934, 0x801C8E00, 0x801C8F00, 0x800091E0, 0x80009238, 0x800092A8, 0x80009354, 0x8001AE04, 0x8001AE34, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
+    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x801CF8D0, 0x801BBB90, 0x801BBB84, 0x801BBD0C, 0x801BFA3C, 0x801BF8A4, 0x801BF01C, 0x801BF084, 0x801BFC20, 0x8003ECC0, 0x8003EC98, 0x8003ED10, 0x8005C074, 0x8005C000, 0x801C8E28, 0x801C5E7C, 0x801C5DF8, 0x801C5D00, 0x801C5F34, 0x801C5FAC, 0x801C6014, 0x801C6058, 0x801C6080, 0x80231BA8, 0x80231934, 0x801F0824, 0x801C8E00, 0x801C8F00, 0x800091E0, 0x80009238, 0x800092A8, 0x80009354, 0x8001AE04, 0x8001AE34, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
         if center not in instruction_by_address:
             continue
         at = ordered.index(center)
