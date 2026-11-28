@@ -337,6 +337,37 @@ def main():
             for address in ordered[ordered.index(start):ordered.index(end) + 1]:
                 insn = instruction_by_address[address]
                 lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Inspect the SI subsystem's small-data globals. In particular,
+    # -0x16F0(r13) supplies the command word ORed with 0x00400000 by
+    # the channel setup routines.
+    si_sda_offsets = (-0x16F0, -0x16F8, -0x9EC, -0x9E8, -0x9E4, -0x9E0)
+    lines.append("")
+    lines.append("SI SUBSYSTEM SDA GLOBAL REFERENCES:")
+    for disp in si_sda_offsets:
+        refs = []
+        for insn in all_instructions:
+            for op in insn.operands:
+                if op.type == 3 and op.mem.base == 71 and op.mem.disp == disp:
+                    refs.append(insn)
+        lines.append(f"SDA r13{disp:+#x}: {len(refs)} references")
+        for insn in refs[:80]:
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Dump the three 0x30-byte command descriptor groups used by the
+    # SI setup routine at 0x802109BC, if the virtual range maps to a DOL section.
+    table_address = 0x803A8B30
+    table_size = 0x90
+    for file_offset, section_addr, section_len in sections:
+        if section_addr <= table_address and table_address + table_size <= section_addr + section_len:
+            rel = table_address - section_addr
+            with args.image.open("rb") as f:
+                f.seek(dol_offset + file_offset + rel)
+                table = f.read(table_size)
+            lines.append("")
+            lines.append(f"SI COMMAND DESCRIPTOR TABLE @ 0x{table_address:08X} ({len(table)} bytes):")
+            for off in range(0, len(table), 0x10):
+                chunk = table[off:off + 0x10]
+                lines.append(f"+0x{off:02X}: " + " ".join(f"{b:02X}" for b in chunk))
+            break
     lines.append("")
     if di_register_pairs:
         lines.append("")
@@ -381,7 +412,7 @@ def main():
         lines.append("CALL XREFS: " + (", ".join(f"0x{a:08X}" for a, _ in xrefs) or "(none found)"))
     lines.append("")
     lines.append("TARGETED CODE WINDOWS:")
-    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
+    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
         if center not in instruction_by_address:
             continue
         at = ordered.index(center)
