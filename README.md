@@ -2,7 +2,7 @@
 
 Research and development project to establish a reproducible workflow for building, packaging, validating and booting custom software on Sega/Namco/Nintendo Triforce arcade hardware.
 
-**Current milestone:** v07 has a valid JVS SwitchInput response in Dolphin 2609b, and both mapped Test and Service buttons are confirmed. Static analysis of the known-good Virtua Striker 2002 DOL exposed its Triforce DI command encoder and its apploader read at offset `0x2440`. v08 is a read-only experiment that sets the reset flag in emulated RAM, issues an encrypted DI read at `0x2440`, then reads the emulated firmware header. It does not reset the CPU or write firmware. Real Triforce hardware has not been tested.
+**Current milestone:** JVS SwitchInput and Test/Service input mappings are confirmed in Dolphin 2609b; v08 also confirmed Dolphin's SegaBoot firmware-read mapping. The next milestone is the actual game-side TEST-to-System-Menu transition. OpenGP documents one Triforce title's flow (save-region wake flag, then reboot into its test menu), but that is not yet verified for Virtua Striker 2002. The known-good Virtua Striker DOL has its own test-menu strings; its handler still needs to be identified. No real Triforce hardware test has been performed.
 
 ## Status
 
@@ -23,7 +23,7 @@ Research and development project to establish a reproducible workflow for buildi
 | Test / Service controls | PASS in Dolphin v07; Test `0x80`, Service `0x40` |
 | SegaBoot availability in Dolphin | Confirmed indirectly by Test bit being exposed only when `GetTestMenu()` is true |
 | Firmware-read source switch | PASS in Dolphin v08; offset 0x0000 returned valid SegaBoot image header |
-| Full reset / SegaBoot hand-off | Not yet verified; firmware source mapping is confirmed, CPU hand-off is next |
+| TEST to Triforce System Menu | Not yet verified; game-side handler investigation in progress |
 
 The reference analysis workflow downloads the supplied Virtua Striker 2002 archive to temporary GitHub runner storage, extracts it there, and uploads only small text reports. The game image and extracted game data are not committed or uploaded as workflow artifacts.
 
