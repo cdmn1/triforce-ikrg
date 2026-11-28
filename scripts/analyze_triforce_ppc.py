@@ -664,6 +664,37 @@ def main():
                     chunk = table[off:off + 0x10]
                     lines.append(f"+0x{off:02X}: " + " ".join(f"{b:02X}" for b in chunk))
                 break
+    # Decode the state-handler pointer table and dump each handler.
+    # The table begins immediately before the TEST MENU title string.
+    state_table_address = 0x8026D38C
+    state_table_size = 0x70
+    state_table = b""
+    for file_offset, section_addr, section_len in sections:
+        if section_addr <= state_table_address and state_table_address + state_table_size <= section_addr + section_len:
+            rel = state_table_address - section_addr
+            with args.image.open("rb") as f:
+                f.seek(dol_offset + file_offset + rel)
+                state_table = f.read(state_table_size)
+            break
+    if state_table:
+        lines.append("")
+        lines.append("TEST MENU STATE HANDLER FUNCTIONS:")
+        ordered = sorted(instruction_by_address)
+        for index in range(0, min(0x64, len(state_table)), 4):
+            target = struct.unpack_from(">I", state_table, index)[0]
+            if target not in instruction_by_address:
+                continue
+            at = ordered.index(target)
+            ends = [a for a in ordered[at:min(len(ordered), at + 400)]
+                    if instruction_by_address[a].mnemonic == "blr"]
+            end = ends[0] if ends else ordered[min(len(ordered) - 1, at + 120)]
+            lines.append(f"-- state {index // 4}: handler 0x{target:08X}, end 0x{end:08X} --")
+            for address in ordered[at:ordered.index(end) + 1]:
+                insn = instruction_by_address[address]
+                lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+                immediates = [op.imm & 0xFFFFFFFF for op in insn.operands if op.type == PPC_OP_IMM]
+                if insn.mnemonic in ("andi.", "andis.", "ori", "oris", "rlwinm", "rlwinm.", "rlwimi") and any(v in (0x80, 0x40, 0x8000, 0x4000, 0x800, 0x1000) for v in immediates):
+                    lines.append("    ** BUTTON-MASK CANDIDATE **")
     # Resolve references to candidate menu-state handler functions.
     menu_handler_targets = (0x801BFA3C, 0x801BBB90, 0x801BF8A4,
                             0x801BF01C, 0x801BFC20)
