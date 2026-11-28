@@ -90,6 +90,7 @@ def main():
     # Look for the known reset-flag address assembled from PPC high/low immediates.
     reset_address_pairs = []
     di_register_pairs = []
+    si_register_pairs = []
     all_instructions = []
     for index, (file_offset, address, length) in enumerate(sections):
         with args.image.open("rb") as f:
@@ -123,6 +124,8 @@ def main():
                     break
                 if high == 0xCC00 and nxt.mnemonic in ("ori", "addi") and low in (0x6000, 0x6004, 0x6008, 0x600C, 0x6010):
                     di_register_pairs.append((insn.address, nxt.address, 0xCC000000 | low))
+                if high == 0xCC00 and nxt.mnemonic in ("ori", "addi") and low in (0x6400, 0x6404, 0x6408, 0x640C, 0x6410, 0x6414, 0x6418, 0x641C, 0x6420):
+                    si_register_pairs.append((insn.address, nxt.address, 0xCC000000 | low))
     lines.append("")
     lines.append(f"TOTAL DECODED INSTRUCTIONS: {decoded_total:,}")
     lines.append(f"BRANCH-AND-LINK CALLS: {len(calls):,}")
@@ -174,6 +177,26 @@ def main():
     lines.append(f"DI MMIO REGISTER ADDRESS PAIRS: {len(di_register_pairs)}")
     for high_addr, low_addr, effective in di_register_pairs[:100]:
         lines.append(f"0x{high_addr:08X} + 0x{low_addr:08X} -> 0x{effective:08X}")
+    if si_register_pairs:
+        lines.append("")
+        lines.append(f"SI MMIO REGISTER ADDRESS PAIRS: {len(si_register_pairs)}")
+        for high_addr, low_addr, effective in si_register_pairs[:100]:
+            lines.append(f"0x{high_addr:08X} + 0x{low_addr:08X} -> 0x{effective:08X}")
+        lines.append("SI MMIO ACCESS CODE CONTEXT (±12 instructions):")
+        emitted = set()
+        ordered = sorted(instruction_by_address)
+        for high_addr, low_addr, effective in si_register_pairs[:40]:
+            for center in (high_addr, low_addr):
+                try:
+                    at = ordered.index(center)
+                except ValueError:
+                    continue
+                for address in ordered[max(0, at - 12):at + 13]:
+                    if address not in emitted:
+                        emitted.add(address)
+                        insn = instruction_by_address[address]
+                        lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    lines.append("")
     if di_register_pairs:
         lines.append("")
         lines.append("DI MMIO ACCESS CODE CONTEXT (±10 instructions):")
@@ -217,7 +240,7 @@ def main():
         lines.append("CALL XREFS: " + (", ".join(f"0x{a:08X}" for a, _ in xrefs) or "(none found)"))
     lines.append("")
     lines.append("TARGETED CODE WINDOWS:")
-    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039D00, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
+    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
         if center not in instruction_by_address:
             continue
         at = ordered.index(center)
