@@ -266,6 +266,61 @@ def main():
                 for address in ordered[max(0, caller_at - 10):caller_at + 8]:
                     insn = instruction_by_address[address]
                     lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # SI functions are often installed as callbacks or stored in SDK
+    # dispatch tables. Search both code address construction and aligned
+    # DOL words for references, not only direct branch-and-link callers.
+    si_function_targets = (0x8020F33C, 0x8020F62C, 0x8020FE80,
+                           0x8020FEF4, 0x8020FF08, 0x8020FF18, 0x8020FF8C)
+    lines.append("")
+    lines.append("SI FUNCTION POINTER / ADDRESS REFERENCES:")
+    for target in si_function_targets:
+        direct = [a for a, op in calls if op.strip().lower() in
+                  (hex(target), f"0x{target:08x}")]
+        constructed = []
+        for pos, insn in enumerate(all_instructions):
+            if insn.mnemonic not in ("lis", "addis") or len(insn.operands) < 2:
+                continue
+            if insn.operands[-1].type != PPC_OP_IMM:
+                continue
+            high = insn.operands[-1].imm & 0xFFFF
+            base_reg = insn.operands[0].reg
+            for nxt in all_instructions[pos + 1:pos + 5]:
+                ops = nxt.operands
+                if len(ops) < 3 or ops[1].reg != base_reg or ops[-1].type != PPC_OP_IMM:
+                    continue
+                low = ops[-1].imm
+                if nxt.mnemonic == "addi":
+                    value = (((high << 16) + low) & 0xFFFFFFFF)
+                elif nxt.mnemonic == "ori":
+                    value = ((high << 16) | (low & 0xFFFF))
+                else:
+                    continue
+                if value == target:
+                    constructed.append((insn.address, nxt.address))
+                    break
+        data_refs = []
+        with args.image.open("rb") as f:
+            for file_offset, address, length in sections:
+                f.seek(dol_offset + file_offset)
+                section_data = f.read(length)
+                for pos in range(0, len(section_data) - 3, 4):
+                    if struct.unpack_from(">I", section_data, pos)[0] == target:
+                        data_refs.append(address + pos)
+        lines.append(f"TARGET 0x{target:08X}: direct BL callers=" +
+                     (", ".join(f"0x{x:08X}" for x in direct) or "(none)") +
+                     "; constructed addresses=" +
+                     (", ".join(f"0x{a:08X}/0x{b:08X}" for a, b in constructed[:20]) or "(none)") +
+                     "; aligned data pointers=" +
+                     (", ".join(f"0x{x:08X}" for x in data_refs[:40]) or "(none)"))
+        for ref_addr in [x for pair in constructed[:8] for x in pair]:
+            try:
+                at = ordered.index(ref_addr)
+            except ValueError:
+                continue
+            lines.append(f"ADDRESS-REFERENCE CONTEXT at 0x{ref_addr:08X}:")
+            for address in ordered[max(0, at - 5):at + 8]:
+                insn = instruction_by_address[address]
+                lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     lines.append("")
     if di_register_pairs:
         lines.append("")
