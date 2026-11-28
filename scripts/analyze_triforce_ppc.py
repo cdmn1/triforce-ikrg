@@ -554,7 +554,7 @@ def main():
                     if struct.unpack_from(">I", section_data, pos)[0] == string_addr:
                         data_refs.append(section_addr + pos)
         menu_pointer_refs.update(data_refs)
-        lines.append(f"{label} @ 0x{string_addr:08X}: "
+        lines.append(f"{label} @ 0x{string_addr:08X}: " +
                      (", ".join(f"0x{a:08X}/0x{b:08X}" for a,b in hits[:12]) or "(no direct lis+addi reference found)") +
                      "; pointer-table refs: " +
                      (", ".join(f"0x{x:08X}" for x in data_refs[:24]) or "(none)"))
