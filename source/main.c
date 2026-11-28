@@ -131,10 +131,10 @@ int main(int argc, char **argv)
         VIDEO_WaitVSync();
 
     printf("\x1b[2J");
-    printf("\x1b[2;0HTRIFORCE NETBOOT JVS INPUT PROBE v07");
+    printf("\x1b[2;0HTRIFORCE NETBOOT SEGABOOT RESET PROBE v11");
     printf("\x1b[3;0H--------------------------------------");
     printf("\x1b[5;0HThis probe polls the Triforce baseboard SI/JVS path.");
-    printf("\x1b[6;0HIt does not reset the system or alter firmware.");
+    printf("\x1b[6;0HSTART requests reset; no firmware writes.");
     printf("\x1b[8;0HInitializing JVS node address...");
 
     // JVS broadcast SetAddress: assign node 1 to the baseboard I/O board.
