@@ -352,6 +352,36 @@ def main():
         lines.append(f"SDA r13{disp:+#x}: {len(refs)} references")
         for insn in refs[:80]:
             lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Follow the object pointer stored in -0x1408(r13). Track simple
+    # pointer copies and constant offsets, then report writes through it.
+    lines.append("")
+    lines.append("SHARED INPUT-STATE STRUCTURE FIELD WRITES:")
+    structure_writes = []
+    for pos, insn in enumerate(all_instructions):
+        if insn.mnemonic != "lwz" or len(insn.operands) < 2:
+            continue
+        mem = insn.operands[-1]
+        if mem.type != 3 or insn.reg_name(mem.mem.base) != "r13" or mem.mem.disp != -0x1408:
+            continue
+        pointer_reg = insn.operands[0].reg
+        tracked = {pointer_reg: 0}
+        for nxt in all_instructions[pos + 1:pos + 81]:
+            ops = nxt.operands
+            if nxt.mnemonic == "blr":
+                break
+            if nxt.mnemonic in ("mr",) and len(ops) >= 2 and ops[1].reg in tracked:
+                tracked[ops[0].reg] = tracked[ops[1].reg]
+            elif nxt.mnemonic == "addi" and len(ops) >= 3 and ops[1].reg in tracked and ops[-1].type == PPC_OP_IMM:
+                tracked[ops[0].reg] = tracked[ops[1].reg] + ops[-1].imm
+            for op in ops:
+                if op.type == 3 and op.mem.base in tracked and nxt.mnemonic in (
+                    "stw", "stb", "sth", "stfs", "stfd", "stmw", "stwx", "stbx", "sthx"
+                ):
+                    structure_writes.append((insn.address, nxt.address,
+                                             tracked[op.mem.base] + op.mem.disp,
+                                             nxt.mnemonic, nxt.op_str))
+    for load_addr, store_addr, field_offset, mnemonic, operands in structure_writes[:200]:
+        lines.append(f"base load 0x{load_addr:08X} -> field +0x{field_offset:X} at 0x{store_addr:08X}: {mnemonic} {operands}")
     # Dump the three 0x30-byte command descriptor groups used by the
     # SI setup routine at 0x802109BC, if the virtual range maps to a DOL section.
     table_address = 0x803A8B30
