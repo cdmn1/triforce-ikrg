@@ -817,6 +817,40 @@ def main():
         for address in ordered[max(0, at - 4):at + 8]:
             insn = instruction_by_address[address]
             lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    # Search loaded DOL sections for known GC-AM/JVS packet byte patterns.
+    jvs_patterns = (
+        (b"\x70\x40", "GC-AM command/subcommand 70 40"),
+        (b"\xE0\x01\x04\x20\x01\x02\x28", "JVS SwitchInput request"),
+        (b"\xE0\xFF\x03\xF1\x01\xF4", "JVS SetAddress broadcast"),
+        (b"\x20\x01\x02", "JVS SwitchInput command body"),
+    )
+    lines.append("")
+    lines.append("RAW GC-AM / JVS PACKET BYTE-PATTERN SCAN:")
+    for pattern, label in jvs_patterns:
+        hits = []
+        for file_offset, section_addr, section_len in sections:
+            with args.image.open("rb") as f:
+                f.seek(dol_offset + file_offset)
+                section_data = f.read(section_len)
+            start = 0
+            while True:
+                pos = section_data.find(pattern, start)
+                if pos < 0:
+                    break
+                hits.append(section_addr + pos)
+                start = pos + 1
+        lines.append(f"{label} ({pattern.hex(' ').upper()}): " +
+                     (", ".join(f"0x{x:08X}" for x in hits[:80]) or "(no occurrences in loaded sections)") +
+                     (f" [total {len(hits)}]" if len(hits) > 80 else ""))
+        for hit in hits[:12]:
+            for file_offset, section_addr, section_len in sections:
+                if section_addr <= hit < section_addr + section_len:
+                    rel = hit - section_addr
+                    with args.image.open("rb") as f:
+                        f.seek(dol_offset + file_offset + max(0, rel - 8))
+                        sample = f.read(min(32, section_len - max(0, rel - 8)))
+                    lines.append(f"  context @ 0x{hit:08X}: {sample.hex(' ').upper()}")
+                    break
     # Dump the contiguous test-menu descriptor/string pointer area.
     table_address = 0x8026D4A0
     table_size = 0x200
