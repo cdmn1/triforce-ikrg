@@ -263,23 +263,38 @@ def main():
         else:
             continue
         hits = []
-        high = (string_addr >> 16) & 0xFFFF
-        low = string_addr & 0xFFFF
+        # PPC small-data relocations commonly use either:
+        #   lis rN, high16(addr); ori/addi rN, rN, low16(addr)
+        # or the adjusted-high/signed-low form:
+        #   lis rN, (addr + 0x8000) >> 16; addi rM, rN, sign16(addr)
+        # Account for both forms; the previous scan missed strings whose low
+        # half had bit 15 set (e.g. 0x8026D3F8 -> lis 0x8027, addi -0x2C08).
+        high_unsigned = (string_addr >> 16) & 0xFFFF
+        low_unsigned = string_addr & 0xFFFF
+        high_adjusted = ((string_addr + 0x8000) >> 16) & 0xFFFF
+        low_signed = low_unsigned if low_unsigned < 0x8000 else low_unsigned - 0x10000
         for pos, insn in enumerate(all_instructions):
             if insn.mnemonic not in ("lis", "addis"):
                 continue
             ops = insn.operands
-            if len(ops) < 2 or ops[-1].type != PPC_OP_IMM or (ops[-1].imm & 0xFFFF) != high:
+            if len(ops) < 2 or ops[-1].type != PPC_OP_IMM:
+                continue
+            high = ops[-1].imm & 0xFFFF
+            if high not in (high_unsigned, high_adjusted):
                 continue
             dest = ops[0].reg
             for nxt in all_instructions[max(0, pos+1):pos+5]:
                 nops = nxt.operands
-                if len(nops) >= 3 and nops[-1].type == PPC_OP_IMM and (nops[-1].imm & 0xFFFF) == low:
-                    if nops[1].reg == dest:
-                        hits.append((insn.address, nxt.address))
-                        string_refs.add(insn.address)
-                        string_refs.add(nxt.address)
-                        break
+                if len(nops) < 3 or nops[-1].type != PPC_OP_IMM or nops[1].reg != dest:
+                    continue
+                low = nops[-1].imm
+                matches_unsigned = (nxt.mnemonic in ("ori", "addi") and (low & 0xFFFF) == low_unsigned)
+                matches_adjusted = (nxt.mnemonic == "addi" and low == low_signed)
+                if matches_unsigned or matches_adjusted:
+                    hits.append((insn.address, nxt.address))
+                    string_refs.add(insn.address)
+                    string_refs.add(nxt.address)
+                    break
         lines.append(f"{label} @ 0x{string_addr:08X}: " +
                      (", ".join(f"0x{a:08X}/0x{b:08X}" for a,b in hits[:12]) or "(no direct lis+addi reference found)"))
     # Report context around logical mask-building instructions. In PPC, ORIS
