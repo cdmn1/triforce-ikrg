@@ -412,7 +412,7 @@ def main():
         lines.append("CALL XREFS: " + (", ".join(f"0x{a:08X}" for a, _ in xrefs) or "(none found)"))
     lines.append("")
     lines.append("TARGETED CODE WINDOWS:")
-    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x801CF8D0, 0x8001AE04, 0x8001AE34, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
+    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x801CF8D0, 0x801BBB90, 0x801BFA3C, 0x801BF8A4, 0x801BF01C, 0x801BFC20, 0x8001AE04, 0x8001AE34, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
         if center not in instruction_by_address:
             continue
         at = ordered.index(center)
@@ -645,6 +645,45 @@ def main():
     for root, refs in sorted(menu_root_refs.items()):
         if refs:
             lines.append(f"0x{root:08X} stored at: " + ", ".join(f"0x{x:08X}" for x in refs[:40]))
+    # Dump the likely menu state dispatch table and the menu-data
+    # header immediately preceding the string records.
+    for table_address, table_size, label in (
+        (0x8026D38C, 0x70, "TEST MENU STATE DISPATCH TABLE"),
+        (0x8026D49C, 0x80, "TEST MENU DATA HEADER / RECORDS"),
+        (0x8026DB88, 0x80, "TEST MENU CONTINUE/EXIT DATA"),
+    ):
+        for file_offset, section_addr, section_len in sections:
+            if section_addr <= table_address and table_address + table_size <= section_addr + section_len:
+                rel = table_address - section_addr
+                with args.image.open("rb") as f:
+                    f.seek(dol_offset + file_offset + rel)
+                    table = f.read(table_size)
+                lines.append("")
+                lines.append(f"{label} @ 0x{table_address:08X}:")
+                for off in range(0, len(table), 0x10):
+                    chunk = table[off:off + 0x10]
+                    lines.append(f"+0x{off:02X}: " + " ".join(f"{b:02X}" for b in chunk))
+                break
+    # Resolve references to candidate menu-state handler functions.
+    menu_handler_targets = (0x801BFA3C, 0x801BBB90, 0x801BF8A4,
+                            0x801BF01C, 0x801BFC20)
+    lines.append("")
+    lines.append("MENU STATE HANDLER XREFS:")
+    for target in menu_handler_targets:
+        direct = [a for a, op in calls if op.strip().lower() in
+                  (hex(target), f"0x{target:08x}")]
+        data_refs = []
+        with args.image.open("rb") as f:
+            for file_offset, section_addr, section_len in sections:
+                f.seek(dol_offset + file_offset)
+                section_data = f.read(section_len)
+                for pos in range(0, len(section_data) - 3, 4):
+                    if struct.unpack_from(">I", section_data, pos)[0] == target:
+                        data_refs.append(section_addr + pos)
+        lines.append(f"0x{target:08X}: direct callers=" +
+                     (", ".join(f"0x{x:08X}" for x in direct) or "(none)") +
+                     "; function-pointer/data refs=" +
+                     (", ".join(f"0x{x:08X}" for x in data_refs[:40]) or "(none)"))
     # Dump the contiguous test-menu descriptor/string pointer area.
     table_address = 0x8026D4A0
     table_size = 0x200
