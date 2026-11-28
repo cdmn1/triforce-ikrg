@@ -347,7 +347,7 @@ def main():
         refs = []
         for insn in all_instructions:
             for op in insn.operands:
-                if op.type == 3 and op.mem.base == 71 and op.mem.disp == disp:
+                if op.type == 3 and insn.reg_name(op.mem.base) == "r13" and op.mem.disp == disp:
                     refs.append(insn)
         lines.append(f"SDA r13{disp:+#x}: {len(refs)} references")
         for insn in refs[:80]:
