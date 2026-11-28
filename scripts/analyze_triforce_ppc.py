@@ -15,7 +15,7 @@ from capstone.ppc import PPC_OP_IMM
 
 INTERESTING = {
     0x811F, 0x8120, 0xCC00, 0xFF00, 0x2440, 0x0910, 0x4000, 0x6000, 0x7000,
-    0x400000, 0x600000, 0x700000, 0x1000, 0x0800, 0x80, 0x40, 0xA8, 0xAA, 0xAB,
+    0x400000, 0x600000, 0x700000, 0x70, 0x20, 0x1000, 0x0800, 0x80, 0x40, 0xA8, 0xAA, 0xAB,
     0xCC006000, 0xCC006004, 0xCC006008, 0xCC00600C,
 }
 STRING_TERMS = (
@@ -303,6 +303,35 @@ def main():
         lower = value.lower()
         if any(term in lower for term in STRING_TERMS):
             strings.append((match.start(), value[:100]))
+    # Locate likely GC-AM/JVS transaction setup sequences. The known probe
+    # sends command 0x70 with subcommand 0x40, then JVS SwitchInput 0x20.
+    # This is a heuristic only: candidates require both constants and a call
+    # in a short instruction window; they are not assigned semantic meaning.
+    jvs_command_candidates = []
+    for pos, insn in enumerate(all_instructions):
+        if insn.mnemonic != "li" or len(insn.operands) < 2:
+            continue
+        if insn.operands[-1].type != PPC_OP_IMM or (insn.operands[-1].imm & 0xFFFF) != 0x70:
+            continue
+        window = all_instructions[pos:min(len(all_instructions), pos + 24)]
+        has_40 = any(x.mnemonic == "li" and len(x.operands) >= 2
+                     and x.operands[-1].type == PPC_OP_IMM
+                     and (x.operands[-1].imm & 0xFFFF) == 0x40 for x in window)
+        has_call = any(x.mnemonic in ("bl", "bla") for x in window)
+        if has_40 and has_call:
+            jvs_command_candidates.append(insn.address)
+    lines.append("")
+    lines.append(f"GC-AM/JVS 0x70 + 0x40 CALL-SEQUENCE CANDIDATES: {len(jvs_command_candidates)}")
+    emitted = set()
+    ordered = sorted(instruction_by_address)
+    for center in jvs_command_candidates[:80]:
+        at = ordered.index(center)
+        lines.append(f"-- candidate around 0x{center:08X} --")
+        for address in ordered[max(0, at - 8):at + 25]:
+            if address not in emitted:
+                emitted.add(address)
+                insn = instruction_by_address[address]
+                lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     lines.append("")
     lines.append("TEST-MENU / JVS INPUT INVESTIGATION")
     lines.append("Immediate-mask candidates (inspect surrounding function before assigning meaning):")
