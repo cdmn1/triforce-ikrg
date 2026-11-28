@@ -225,6 +225,47 @@ def main():
                         emitted.add(address)
                         insn = instruction_by_address[address]
                         lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+    if si_register_pairs:
+        lines.append("")
+        lines.append("SI MMIO ENCLOSING ROUTINES AND CALLERS:")
+        ordered = sorted(instruction_by_address)
+        emitted_starts = set()
+        for high_addr, access_addr, effective in si_register_pairs:
+            try:
+                at = ordered.index(access_addr)
+            except ValueError:
+                continue
+            starts = [a for a in ordered[max(0, at - 180):at + 1]
+                      if instruction_by_address[a].mnemonic == "stwu"
+                      and instruction_by_address[a].op_str.startswith("r1, -")]
+            if not starts:
+                lines.append(f"-- access 0x{access_addr:08X}: no nearby stack-frame prologue found --")
+                continue
+            start = starts[-1]
+            if start in emitted_starts:
+                continue
+            emitted_starts.add(start)
+            end_candidates = [a for a in ordered[ordered.index(start) + 1:
+                                                    min(len(ordered), ordered.index(start) + 500)]
+                              if instruction_by_address[a].mnemonic == "blr"]
+            end = end_candidates[0] if end_candidates else ordered[min(len(ordered) - 1,
+                                                                          ordered.index(start) + 120)]
+            lines.append(f"-- routine 0x{start:08X}..0x{end:08X} (SI access near 0x{access_addr:08X}) --")
+            for address in ordered[ordered.index(start):ordered.index(end) + 1]:
+                insn = instruction_by_address[address]
+                lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+            xrefs = [(a, op) for a, op in calls
+                     if op.strip().lower() in (hex(start), f"0x{start:08x}")]
+            lines.append("DIRECT CALLERS: " + (", ".join(f"0x{a:08X}" for a, _ in xrefs) or "(none found)"))
+            for caller, _ in xrefs[:12]:
+                try:
+                    caller_at = ordered.index(caller)
+                except ValueError:
+                    continue
+                lines.append(f"CALLER CONTEXT around 0x{caller:08X}:")
+                for address in ordered[max(0, caller_at - 10):caller_at + 8]:
+                    insn = instruction_by_address[address]
+                    lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     lines.append("")
     if di_register_pairs:
         lines.append("")
