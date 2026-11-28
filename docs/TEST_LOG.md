@@ -167,3 +167,16 @@ Record exact artifact version, toolchain/container tag, emulator version or hard
 - Build: CI PASS, [workflow run #133](https://github.com/cdmn1/triforce-ikrg/actions/runs/46084690570); artifact `triforce-hello-v09`, ID `15237679896`.
 - Emulator reset/handoff result: pending user test.
 - Real Triforce: not tested.
+
+
+## 2026-11-28 — TEST-to-System-Menu path investigation
+
+- Corrected the working definition: the user's intended TEST action is entry to the Triforce System Menu/test menu, not a generic cold reset. SERVICE remains a separate input.
+- OpenGP's Triforce notes document a concrete implementation for Mario Kart Arcade GP/GP2: the game's per-frame service-button handler reads TEST (JVS system bit 7) and SERVICE (P1 switch bit 6). TEST alone exits the main loop, preserves 0x100 bytes at 0x811FFF00 with the first word set to 1, and invokes OSResetSystem; the next boot consumes the saved-region flag and enters the game's test menu. TEST+SERVICE instead opens the I/O test page. This is a useful reference flow, not proof that Virtua Striker 2002 uses the same handler or exact semantics.
+- Existing Virtua Striker 2002 static analysis confirms game-specific strings including "VIRTUA STRIKER 2002 TEST MENU", "SELECT WITH SERVICE BUTTON", "AND PRESS TEST BUTTON", "PRESS TEST BUTTON TO CONTINUE", and "PRESS TEST BUTTON TO EXIT".
+- The earlier static scan did not find a direct PPC high/low immediate pair for 0x811FFF00 in this DOL. That is not conclusive: the game may call an SDK save-region/reset API, construct the address indirectly, or use another mechanism.
+- Expanded scripts/analyze_triforce_ppc.py to report likely TEST/SERVICE mask immediates (0x1000/0x0800 plus raw JVS masks) and direct references to the known test-menu strings, with nearby PPC disassembly. This analysis remains metadata-only; it does not upload or expose game executable data.
+- Analysis-script commit: 97105626323784dbf3a15edcc46bfa5c5017de2e. The reference-analysis workflow is configured to run on this script path; its next report should help identify the actual menu/input handler.
+- v11's cold-reset behavior is not a valid TEST-menu implementation and must not be reused. No new reset probe was created.
+- Emulator: no new user test requested; this is static reverse-engineering work.
+- Real Triforce: not tested.
