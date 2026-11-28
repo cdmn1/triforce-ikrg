@@ -192,9 +192,32 @@ def main():
                     insn = instruction_by_address[address]
                     lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     lines.append("")
-    lines.append("TARGETED CODE WINDOWS:")
+    lines.append("RESET-FLAG CANDIDATE FUNCTION TRACE:")
     ordered = sorted(instruction_by_address)
-    for center in (0x8000FEB8, 0x801DC760, 0x80039F00, 0x801C661C, 0x801C662C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
+    for candidate in (0x801C661C, 0x801C662C):
+        if candidate not in instruction_by_address:
+            lines.append(f"0x{candidate:08X}: address not decoded")
+            continue
+        at = ordered.index(candidate)
+        # Find a nearby conventional PPC function prologue, then its return.
+        starts = [a for a in ordered[max(0, at - 160):at + 1]
+                  if instruction_by_address[a].mnemonic == "stwu"
+                  and instruction_by_address[a].op_str.startswith("r1, -")]
+        start = starts[-1] if starts else ordered[max(0, at - 40)]
+        end_candidates = [a for a in ordered[at:min(len(ordered), at + 240)]
+                          if instruction_by_address[a].mnemonic == "blr"]
+        end = end_candidates[0] if end_candidates else ordered[min(len(ordered)-1, at + 80)]
+        lines.append(f"-- candidate 0x{candidate:08X}; probable function 0x{start:08X}..0x{end:08X} --")
+        for address in ordered[max(0, ordered.index(start)):ordered.index(end) + 1]:
+            insn = instruction_by_address[address]
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+        # Static direct-call xrefs to the probable function start and candidate.
+        xrefs = [(a, op) for a, op in calls
+                 if op.strip() in (hex(start), hex(candidate), f"0x{start:08x}", f"0x{candidate:08x}")]
+        lines.append("CALL XREFS: " + (", ".join(f"0x{a:08X}" for a, _ in xrefs) or "(none found)"))
+    lines.append("")
+    lines.append("TARGETED CODE WINDOWS:")
+    for center in (0x8000FEB8, 0x801DC760, 0x80039F00, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
         if center not in instruction_by_address:
             continue
         at = ordered.index(center)
