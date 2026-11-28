@@ -784,6 +784,39 @@ def main():
                      (", ".join(f"0x{x:08X}" for x in direct) or "(none)") +
                      "; function-pointer/data refs=" +
                      (", ".join(f"0x{x:08X}" for x in data_refs[:40]) or "(none)"))
+    # Search all PPC address constructions in the JVS diagnostic/game-ID
+    # resource block. This catches code that references the block base and
+    # then selects a message by offset rather than loading a string pointer.
+    lines.append("")
+    lines.append("JVS DIAGNOSTIC / GAME-ID DATA-REGION ADDRESS REFERENCES (0x8023D700-0x8023DA00):")
+    jvs_region_refs = []
+    for pos, insn in enumerate(all_instructions):
+        if insn.mnemonic not in ("lis", "addis") or len(insn.operands) < 2:
+            continue
+        if insn.operands[-1].type != PPC_OP_IMM:
+            continue
+        high = insn.operands[-1].imm & 0xFFFF
+        base_reg = insn.operands[0].reg
+        for nxt in all_instructions[pos + 1:pos + 5]:
+            ops = nxt.operands
+            if len(ops) < 3 or ops[1].reg != base_reg or ops[-1].type != PPC_OP_IMM:
+                continue
+            low = ops[-1].imm
+            if nxt.mnemonic == "addi":
+                value = ((high << 16) + low) & 0xFFFFFFFF
+            elif nxt.mnemonic == "ori":
+                value = (high << 16) | (low & 0xFFFF)
+            else:
+                continue
+            if 0x8023D700 <= value < 0x8023DA00:
+                jvs_region_refs.append((value, insn.address, nxt.address))
+                break
+    for value, high_addr, low_addr in jvs_region_refs[:160]:
+        lines.append(f"0x{value:08X} constructed at 0x{high_addr:08X}/0x{low_addr:08X}")
+        at = ordered.index(high_addr)
+        for address in ordered[max(0, at - 4):at + 8]:
+            insn = instruction_by_address[address]
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     # Dump the contiguous test-menu descriptor/string pointer area.
     table_address = 0x8026D4A0
     table_size = 0x200
