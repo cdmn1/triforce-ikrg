@@ -479,9 +479,36 @@ def main():
         xrefs = [(a, op) for a, op in calls
                  if op.strip() in (hex(start), hex(candidate), f"0x{start:08x}", f"0x{candidate:08x}")]
         lines.append("CALL XREFS: " + (", ".join(f"0x{a:08X}" for a, _ in xrefs) or "(none found)"))
+    # Recover the complete routine containing the command-byte scanner.
+    scanner_address = 0x80039C00
+    ordered = sorted(instruction_by_address)
+    if scanner_address in instruction_by_address:
+        scanner_at = ordered.index(scanner_address)
+        prologues = [a for a in ordered[max(0, scanner_at - 700):scanner_at + 1]
+                     if instruction_by_address[a].mnemonic == "stwu"
+                     and instruction_by_address[a].op_str.startswith("r1, -")]
+        scanner_start = prologues[-1] if prologues else ordered[max(0, scanner_at - 80)]
+        returns = [a for a in ordered[scanner_at:min(len(ordered), scanner_at + 1800)]
+                   if instruction_by_address[a].mnemonic == "blr"]
+        scanner_end = returns[0] if returns else ordered[min(len(ordered) - 1, scanner_at + 300)]
+        lines.append("")
+        lines.append(f"COMPLETE COMMAND-SCANNER ROUTINE 0x{scanner_start:08X}..0x{scanner_end:08X}:")
+        for address in ordered[ordered.index(scanner_start):ordered.index(scanner_end) + 1]:
+            insn = instruction_by_address[address]
+            lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
+        scanner_callers = [(a, op) for a, op in calls
+                           if op.strip().lower() in (hex(scanner_start), f"0x{scanner_start:08x}")]
+        lines.append("SCANNER ROUTINE DIRECT CALLERS: " +
+                     (", ".join(f"0x{a:08X}" for a, _ in scanner_callers) or "(none found)"))
+        for caller, _ in scanner_callers[:20]:
+            at = ordered.index(caller)
+            lines.append(f"SCANNER CALLER CONTEXT at 0x{caller:08X}:")
+            for address in ordered[max(0, at - 12):at + 8]:
+                insn = instruction_by_address[address]
+                lines.append(f"0x{insn.address:08X}: {insn.mnemonic} {insn.op_str}")
     lines.append("")
     lines.append("TARGETED CODE WINDOWS:")
-    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x801CF8D0, 0x801BBB90, 0x801BBB84, 0x801BBD0C, 0x801BFA3C, 0x801BF8A4, 0x801BF01C, 0x801BF084, 0x801BFC20, 0x8003ECC0, 0x8003EC98, 0x8003ED10, 0x8005C074, 0x8005C000, 0x801C8E28, 0x801C5E7C, 0x801C5DF8, 0x801C5D00, 0x801C5F34, 0x801C5FAC, 0x801C6014, 0x801C6058, 0x801C6080, 0x80231BA8, 0x80231934, 0x801F0824, 0x801C8E00, 0x801C8F00, 0x8022D5C4, 0x8022D5E8, 0x801C6A60, 0x801C6AB4, 0x801C6AC0, 0x801C6B00, 0x800091E0, 0x80009238, 0x800092A8, 0x80009354, 0x8001AE04, 0x8001AE34, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
+    for center in (0x800546EC, 0x8005C310, 0x8000FEB8, 0x801DC760, 0x80039C00, 0x80039D00, 0x801C6A20, 0x801C6B30, 0x801C7408, 0x801C744C, 0x801C897C, 0x8020FF18, 0x802109BC, 0x80210A70, 0x801CEA2C, 0x801CEAEC, 0x801CECBC, 0x801CF12C, 0x801CF130, 0x80210160, 0x802102B0, 0x802106B4, 0x80210878, 0x801CA944, 0x801CF8D0, 0x801BBB90, 0x801BBB84, 0x801BBD0C, 0x801BFA3C, 0x801BF8A4, 0x801BF01C, 0x801BF084, 0x801BFC20, 0x8003ECC0, 0x8003EC98, 0x8003ED10, 0x8005C074, 0x8005C000, 0x801C8E28, 0x801C5E7C, 0x801C5DF8, 0x801C5D00, 0x801C5F34, 0x801C5FAC, 0x801C6014, 0x801C6058, 0x801C6080, 0x80231BA8, 0x80231934, 0x801F0824, 0x801C8E00, 0x801C8F00, 0x8022D5C4, 0x8022D5E8, 0x801C6A60, 0x801C6AB4, 0x801C6AC0, 0x801C6B00, 0x800091E0, 0x80009238, 0x800092A8, 0x80009354, 0x8001AE04, 0x8001AE34, 0x80039B00, 0x80039B40, 0x80039C00, 0x80039D40, 0x80039F00, 0x80039FBC, 0x8003A02C, 0x80039E94, 0x8005B86C, 0x801C6A24, 0x801C709C, 0x801C7138, 0x801C6FE8, 0x801C726C, 0x801C7450, 0x801C7928, 0x801CB7E4, 0x801CB864, 0x8022DDE0, 0x80226CD0):
         if center not in instruction_by_address:
             continue
         at = ordered.index(center)
